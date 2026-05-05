@@ -1,0 +1,6 @@
+node_modules/
+Student-AI-Frontend/node_modules/
+target/
+.env
+__pycache__/
+*.log
