@@ -1,105 +1,167 @@
-import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import {
+  Activity,
+  AlertTriangle,
+  ArrowUpRight,
+  BarChart3,
+  BookOpenCheck,
+  Brain,
+  CalendarCheck,
+  CheckCircle2,
+  Clock3,
+  RefreshCcw,
+  Target,
+  TrendingDown,
+  TrendingUp,
+} from 'lucide-react';
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 import { dashboardAPI, academicAPI } from '../api/api';
 import { useAuth } from '../context/AuthContext';
-import {
-  BarChart, Bar, XAxis, YAxis,
-  Tooltip, ResponsiveContainer, Cell,
-} from 'recharts';
+import { Badge, Button, Card, EmptyState, MetricCard, PageHeader, SectionTitle } from '../components/ui/DashboardPrimitives';
 
-const PRIORITY = {
-  CRITICAL: { bg: '#FEE2E2', border: '#FCA5A5', color: '#991B1B', dot: '#EF4444' },
-  HIGH:     { bg: '#FEF3C7', border: '#FCD34D', color: '#92400E', dot: '#F59E0B' },
-  MEDIUM:   { bg: '#EDE9FE', border: '#C4B5FD', color: '#4C1D95', dot: '#8B5CF6' },
-  LOW:      { bg: '#D1FAE5', border: '#6EE7B7', color: '#064E3B', dot: '#10B981' },
+const RISK = {
+  HIGH: { tone: 'red', label: 'High risk', accent: '#ef4444', soft: 'bg-red-50 dark:bg-red-500/10', text: 'text-red-700 dark:text-red-300' },
+  MEDIUM: { tone: 'amber', label: 'Medium risk', accent: '#f59e0b', soft: 'bg-amber-50 dark:bg-amber-500/10', text: 'text-amber-800 dark:text-amber-300' },
+  LOW: { tone: 'emerald', label: 'Low risk', accent: '#10b981', soft: 'bg-emerald-50 dark:bg-emerald-500/10', text: 'text-emerald-700 dark:text-emerald-300' },
+  UNKNOWN: { tone: 'slate', label: 'Not enough data', accent: '#64748b', soft: 'bg-slate-100 dark:bg-slate-800', text: 'text-slate-700 dark:text-slate-300' },
 };
 
-function MetricCard({ label, value, sub, cardBg = '#F0FDF4', valueColor = '#1D9E75' }) {
+const PRIORITY = {
+  CRITICAL: { tone: 'red', accent: 'bg-red-500', label: 'Critical' },
+  HIGH: { tone: 'amber', accent: 'bg-amber-500', label: 'High' },
+  MEDIUM: { tone: 'indigo', accent: 'bg-indigo-500', label: 'Medium' },
+  LOW: { tone: 'emerald', accent: 'bg-emerald-500', label: 'Low' },
+};
+
+function number(value, fallback = 0) {
+  return Number.isFinite(Number(value)) ? Number(value) : fallback;
+}
+
+function pct(value) {
+  return `${number(value).toFixed(1)}%`;
+}
+
+function LoadingDashboard() {
   return (
-    <div style={{
-      background: cardBg,
-      borderRadius: 14,
-      padding: '18px 20px',
-      boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
-    }}>
-      <div style={{
-        fontSize: 12, fontWeight: 600, color: '#6B7280',
-        textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8,
-      }}>{label}</div>
-      <div style={{
-        fontSize: 26, fontWeight: 700, lineHeight: 1, color: valueColor,
-      }}>{value}</div>
-      {sub && <div style={{
-        fontSize: 13, color: '#6B7280', marginTop: 6,
-      }}>{sub}</div>}
+    <div className="space-y-6">
+      <div className="h-24 skeleton" />
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {[0, 1, 2, 3].map((item) => <div key={item} className="h-32 skeleton" />)}
+      </div>
+      <div className="grid gap-4 xl:grid-cols-3">
+        <div className="h-80 skeleton xl:col-span-2" />
+        <div className="h-80 skeleton" />
+      </div>
     </div>
   );
 }
 
-function SectionHeader({ children, color = '#374151' }) {
+function SubjectPill({ label, type }) {
   return (
-    <div style={{
-      fontSize: 15, fontWeight: 700, color,
-      margin: '28px 0 12px',
-      paddingBottom: 8,
-      borderBottom: '2px solid #E5E7EB',
-    }}>{children}</div>
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950">
+      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">{type}</p>
+      <p className="mt-2 text-sm font-semibold text-slate-950 dark:text-white">{label || 'Not available'}</p>
+    </div>
   );
 }
-
-function Btn({ label, color = '#1D9E75', onClick, loading, small }) {
-  return (
-    <button onClick={onClick} disabled={loading} style={{
-      padding: small ? '7px 14px' : '10px 20px',
-      fontSize: small ? 13 : 14, fontWeight: 600,
-      background: loading ? '#D1D5DB' : color,
-      color: '#fff', border: 'none',
-      borderRadius: 10, cursor: loading ? 'not-allowed' : 'pointer',
-      transition: 'all .15s',
-    }}>
-      {loading ? 'Loading...' : label}
-    </button>
-  );
-}
-
-const BAR_COLORS = ['#1D9E75','#EF9F27','#6366F1','#8B5CF6','#F59E0B','#3B82F6'];
 
 export default function Dashboard() {
   const { id } = useParams();
   const { isTeacher, isStudent } = useAuth();
   const navigate = useNavigate();
 
-  const [data,         setData]         = useState(null);
-  const [loading,      setLoading]      = useState(true);
-  const [error,        setError]        = useState('');
-  const [refreshing,   setRefreshing]   = useState(false);
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
 
-  const [studyHours,   setStudyHours]   = useState('');
-  const [studyDate,    setStudyDate]    = useState(new Date().toISOString().split('T')[0]);
+  const [studyHours, setStudyHours] = useState('');
+  const [studyDate, setStudyDate] = useState(new Date().toISOString().split('T')[0]);
   const [studySubject, setStudySubject] = useState('');
-  const [studyRev,     setStudyRev]     = useState(false);
-  const [savingStudy,  setSavingStudy]  = useState(false);
-  const [studyMsg,     setStudyMsg]     = useState('');
+  const [studyRev, setStudyRev] = useState(false);
+  const [savingStudy, setSavingStudy] = useState(false);
+  const [studyMsg, setStudyMsg] = useState('');
 
   const load = async () => {
     try {
-      const r = await dashboardAPI.get(id);
-      setData(r.data);
+      const response = await dashboardAPI.get(id);
+      setData(response.data);
       setError('');
     } catch {
-      setError('Could not load dashboard. Make sure marks/attendance data exists.');
-    } finally { setLoading(false); setRefreshing(false); }
+      setError('Could not load this dashboard. Add marks, attendance, and engagement data before running AI analysis.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   };
 
-  useEffect(() => { load(); }, [id]);
+  useEffect(() => {
+    setLoading(true);
+    load();
+  }, [id]);
 
-  const handleRefresh = () => { setRefreshing(true); load(); };
+  const analytics = data?.analytics || {};
+  const risk = RISK[data?.riskLevel] || RISK.UNKNOWN;
+
+  const recommendations = useMemo(() => [
+    ...(data?.criticalRecommendations || []),
+    ...(data?.highRecommendations || []),
+    ...(data?.mediumRecommendations || []),
+    ...(data?.lowRecommendations || []),
+  ], [data]);
+
+  const lecturePercent = useMemo(() => {
+    const raw = number(analytics.avgLectureCompletionRate);
+    return raw > 1 ? raw : raw * 100;
+  }, [analytics.avgLectureCompletionRate]);
+
+  const barData = useMemo(() => [
+    { name: 'Score', value: number(analytics.avgScore), color: '#4f46e5' },
+    { name: 'Attendance', value: number(analytics.attendancePercentage), color: '#10b981' },
+    { name: 'Assignments', value: number(analytics.assignmentCompletionRate), color: '#f59e0b' },
+    { name: 'Consistency', value: number(analytics.consistencyIndex), color: '#0ea5e9' },
+    { name: 'Study', value: Math.min(100, number(analytics.weeklyStudyHours) * 4), color: '#8b5cf6' },
+    { name: 'Lecture', value: lecturePercent, color: '#14b8a6' },
+  ], [analytics, lecturePercent]);
+
+  const trendData = useMemo(() => {
+    const avg = number(analytics.avgScore);
+    const recent = number(analytics.recentAvgScore, avg);
+    const predicted = number(data?.predictedScore, recent);
+    return [
+      { name: 'Baseline', value: Math.max(0, avg - 6) },
+      { name: 'Current', value: avg },
+      { name: 'Recent', value: recent },
+      { name: 'AI forecast', value: predicted },
+    ];
+  }, [analytics, data?.predictedScore]);
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    load();
+  };
 
   const handleLogStudy = async () => {
     if (!studyHours || parseFloat(studyHours) <= 0) {
-      setStudyMsg('Enter valid study hours.'); return;
+      setStudyMsg('Enter valid study hours.');
+      return;
     }
-    setSavingStudy(true); setStudyMsg('');
+
+    setSavingStudy(true);
+    setStudyMsg('');
     try {
       await academicAPI.addStudySession(id, {
         subject: studySubject || 'General',
@@ -107,376 +169,274 @@ export default function Dashboard() {
         hoursStudied: parseFloat(studyHours),
         revisionSession: studyRev,
       });
-      setStudyMsg('✓ Saved! Refreshing your predictions...');
-      setStudyHours(''); setStudySubject(''); setStudyRev(false);
-      setTimeout(() => { handleRefresh(); setStudyMsg(''); }, 1500);
+      setStudyMsg('Saved. Refreshing predictions...');
+      setStudyHours('');
+      setStudySubject('');
+      setStudyRev(false);
+      setTimeout(() => {
+        handleRefresh();
+        setStudyMsg('');
+      }, 900);
     } catch {
       setStudyMsg('Failed to save. Try again.');
-    } finally { setSavingStudy(false); }
+    } finally {
+      setSavingStudy(false);
+    }
   };
 
-  if (loading) return (
-    <div style={{ padding: '60px 0', textAlign: 'center',
-                  fontSize: 16, color: '#6B7280' }}>
-      Loading dashboard...
-    </div>
-  );
+  if (loading) return <LoadingDashboard />;
 
-  if (error) return (
-    <div style={{
-      padding: '20px 24px', background: '#FEE2E2',
-      borderRadius: 12, color: '#991B1B', fontSize: 15,
-    }}>
-      {error}
-      {isTeacher && (
-        <button onClick={() => navigate(`/students/${id}`)} style={{
-          display: 'block', marginTop: 12, fontSize: 14,
-          color: '#1D9E75', background: 'none', border: 'none',
-          cursor: 'pointer', padding: 0, fontWeight: 600,
-        }}>→ Add data for this student first</button>
-      )}
-    </div>
-  );
-
-  if (!data) return null;
-
-  const a = data.analytics || {};
-  const allRecs = [
-    ...(data.criticalRecommendations || []),
-    ...(data.highRecommendations     || []),
-    ...(data.mediumRecommendations   || []),
-    ...(data.lowRecommendations      || []),
-  ];
-
-  const riskStyle = {
-    HIGH:    { bg: '#FEE2E2', color: '#991B1B', border: '#FCA5A5' },
-    MEDIUM:  { bg: '#FEF3C7', color: '#92400E', border: '#FCD34D' },
-    LOW:     { bg: '#D1FAE5', color: '#064E3B', border: '#6EE7B7' },
-    UNKNOWN: { bg: '#F3F4F6', color: '#374151', border: '#D1D5DB' },
-  }[data.riskLevel] || { bg: '#F3F4F6', color: '#374151', border: '#D1D5DB' };
-
-
-const rawLecture = a.avgLectureCompletionRate || 0;
-const lecturePercent = rawLecture > 1 ? rawLecture : rawLecture * 100;
-  const barData = [
-    { name: 'Avg score',   value: +(a.avgScore || 0).toFixed(1) },
-    { name: 'Attendance',  value: +(a.attendancePercentage || 0).toFixed(1) },
-    { name: 'Assignment',  value: +(a.assignmentCompletionRate || 0).toFixed(1) },
-    { name: 'Consistency', value: +(a.consistencyIndex || 0).toFixed(1) },
-    { name: 'Study hrs×4', value: +Math.min(100,(a.weeklyStudyHours||0)*4).toFixed(1) },
-{ name: 'Lecture %', value: +lecturePercent.toFixed(1) },  ];
-
-  return (
-    <div style={{ maxWidth: 1100, fontSize: 15 }}>
-
-      <div style={{ display: 'flex', justifyContent: 'space-between',
-                    alignItems: 'flex-start', marginBottom: 20 }}>
-        <div>
-          <div style={{ fontSize: 24, fontWeight: 700, color: '#111827' }}>
-            {isStudent ? 'My Dashboard' : data.studentName}
+  if (error) {
+    return (
+      <Card className="max-w-3xl p-6">
+        <div className="flex gap-4">
+          <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-300">
+            <AlertTriangle className="h-5 w-5" />
           </div>
-          <div style={{ fontSize: 14, color: '#6B7280', marginTop: 4 }}>
-            {data.department} · Semester {data.semester}
-            {isStudent && (
-              <span style={{
-                marginLeft: 10, fontSize: 12, padding: '2px 10px',
-                borderRadius: 99, background: '#EDE9FE', color: '#4C1D95',
-                fontWeight: 600,
-              }}>Student view — read only</span>
+          <div>
+            <h1 className="text-lg font-semibold text-slate-950 dark:text-white">Dashboard unavailable</h1>
+            <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">{error}</p>
+            {isTeacher && (
+              <Button className="mt-5" onClick={() => navigate(`/students/${id}`)}>
+                Add academic data
+                <ArrowUpRight className="h-4 w-4" />
+              </Button>
             )}
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <Btn label={refreshing ? 'Refreshing...' : 'Refresh Analysis'}
-               loading={refreshing} onClick={handleRefresh} />
-          {isTeacher && (
-            <Btn label="Edit Student Data" color="#7F77DD"
-                 onClick={() => navigate(`/students/${id}`)} />
+      </Card>
+    );
+  }
+
+  if (!data) return null;
+
+  const scoreTrend = number(analytics.scoreTrend);
+
+  return (
+    <div>
+      <PageHeader
+        eyebrow={isStudent ? 'Student dashboard' : 'Teacher insight view'}
+        title={isStudent ? 'My academic intelligence' : data.studentName}
+        description={`${data.department || 'Department'} / Semester ${data.semester || '-'} / AI-assisted performance, risk, attendance, and recommendation tracking.`}
+        actions={
+          <>
+            <Button variant="secondary" onClick={handleRefresh} disabled={refreshing}>
+              <RefreshCcw className={refreshing ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} />
+              {refreshing ? 'Refreshing' : 'Refresh analysis'}
+            </Button>
+            {isTeacher && (
+              <Button onClick={() => navigate(`/students/${id}`)}>
+                Edit data
+                <ArrowUpRight className="h-4 w-4" />
+              </Button>
+            )}
+          </>
+        }
+      />
+
+      <div className="grid gap-4 xl:grid-cols-3">
+        <Card className={`p-5 xl:col-span-2 ${risk.soft}`}>
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <div className="mb-3 flex flex-wrap items-center gap-2">
+                <Badge tone={risk.tone}>
+                  <span className="h-1.5 w-1.5 rounded-full" style={{ background: risk.accent }} />
+                  {risk.label}
+                </Badge>
+                <Badge tone={data.willPass ? 'emerald' : 'red'}>
+                  {data.willPass ? <CheckCircle2 className="h-3.5 w-3.5" /> : <AlertTriangle className="h-3.5 w-3.5" />}
+                  {data.willPass ? 'Likely to pass' : 'Intervention needed'}
+                </Badge>
+              </div>
+              <h2 className="text-xl font-semibold tracking-tight text-slate-950 dark:text-white">AI prediction summary</h2>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-400">
+                Prediction confidence is driven by attendance, recent score movement, consistency, study effort, assignment completion, and engagement signals.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-3 sm:min-w-72">
+              <div className="rounded-2xl bg-white/70 p-4 dark:bg-slate-950/60">
+                <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Predicted score</p>
+                <p className="mt-1 text-3xl font-semibold text-slate-950 dark:text-white">{pct(data.predictedScore)}</p>
+              </div>
+              <div className="rounded-2xl bg-white/70 p-4 dark:bg-slate-950/60">
+                <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Pass confidence</p>
+                <p className={`mt-1 text-3xl font-semibold ${risk.text}`}>{pct(data.passProbability)}</p>
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-5">
+          <SectionTitle title="Recommendation mix" description={`${recommendations.length} generated actions`} />
+          <div className="space-y-3">
+            {['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'].map((priority) => {
+              const count = recommendations.filter((item) => item.priority === priority).length;
+              const meta = PRIORITY[priority];
+              return (
+                <div key={priority}>
+                  <div className="mb-1 flex items-center justify-between text-xs font-medium text-slate-500 dark:text-slate-400">
+                    <span>{meta.label}</span>
+                    <span>{count}</span>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                    <div className={`h-full rounded-full ${meta.accent}`} style={{ width: `${recommendations.length ? (count / recommendations.length) * 100 : 0}%` }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      </div>
+
+      <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <MetricCard label="Average performance" value={pct(analytics.avgScore)} sub="Overall score health" trend={scoreTrend >= 0 ? `+${scoreTrend.toFixed(1)}` : scoreTrend.toFixed(1)} icon={BarChart3} tone={number(analytics.avgScore) >= 60 ? 'emerald' : 'red'} />
+        <MetricCard label="Attendance" value={pct(analytics.attendancePercentage)} sub={analytics.lowAttendanceFlag ? 'Below 75 percent threshold' : 'Healthy attendance'} icon={CalendarCheck} tone={number(analytics.attendancePercentage) >= 75 ? 'emerald' : 'amber'} />
+        <MetricCard label="Weekly study" value={`${number(analytics.weeklyStudyHours).toFixed(1)}h`} sub="Average learning effort" icon={Clock3} tone="indigo" />
+        <MetricCard label="Risk score" value={number(analytics.riskScore).toFixed(1)} sub={`${data.riskLevel || 'Unknown'} risk level`} icon={AlertTriangle} tone={risk.tone} />
+      </div>
+
+      <div className="mt-6 grid gap-4 xl:grid-cols-3">
+        <Card className="p-5 xl:col-span-2">
+          <SectionTitle title="Performance analytics" description="Limited palette, clean grid lines, and comparable scoring signals." />
+          <div className="h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={barData} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+                <CartesianGrid stroke="var(--chart-grid)" strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="name" tickLine={false} axisLine={false} tick={{ fill: 'var(--chart-text)', fontSize: 12 }} />
+                <YAxis domain={[0, 100]} tickLine={false} axisLine={false} tick={{ fill: 'var(--chart-text)', fontSize: 12 }} />
+                <Tooltip
+                  formatter={(value) => `${number(value).toFixed(1)}%`}
+                  contentStyle={{ borderRadius: 14, border: '1px solid #e2e8f0', boxShadow: '0 16px 40px -24px rgba(15,23,42,.5)' }}
+                />
+                <Bar dataKey="value" radius={[8, 8, 0, 0]} maxBarSize={44}>
+                  {barData.map((entry) => <Cell key={entry.name} fill={entry.color} />)}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </Card>
+
+        <Card className="p-5">
+          <SectionTitle title="Trend forecast" description="Current movement into AI score forecast." />
+          <div className="h-48">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={trendData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+                <CartesianGrid stroke="var(--chart-grid)" strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="name" tickLine={false} axisLine={false} tick={{ fill: 'var(--chart-text)', fontSize: 11 }} />
+                <YAxis domain={[0, 100]} tickLine={false} axisLine={false} tick={{ fill: 'var(--chart-text)', fontSize: 11 }} />
+                <Tooltip formatter={(value) => `${number(value).toFixed(1)}%`} />
+                <Line type="monotone" dataKey="value" stroke="#4f46e5" strokeWidth={3} dot={{ r: 4, fill: '#4f46e5' }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <SubjectPill type="Best subject" label={data.bestSubject} />
+            <SubjectPill type="Weak subject" label={data.weakestSubject} />
+          </div>
+        </Card>
+      </div>
+
+      <div className="mt-6 grid gap-4 xl:grid-cols-3">
+        <Card className="p-5 xl:col-span-2">
+          <SectionTitle title="AI recommendations" description="Prioritized, action-oriented guidance for the next academic cycle." />
+          {recommendations.length === 0 ? (
+            <EmptyState title="No recommendations yet" description="Refresh analysis after adding academic data to generate personalized suggestions." />
+          ) : (
+            <div className="space-y-3">
+              {recommendations.map((item, index) => {
+                const meta = PRIORITY[item.priority] || PRIORITY.LOW;
+                return (
+                  <motion.article
+                    key={item.id || `${item.priority}-${index}`}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.18, delay: Math.min(index * 0.03, 0.18) }}
+                    className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950"
+                  >
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <Badge tone={meta.tone}>{meta.label}</Badge>
+                        <p className="mt-3 text-sm font-medium leading-6 text-slate-800 dark:text-slate-200">{item.message}</p>
+                      </div>
+                      <Badge tone="slate" className="w-fit">{item.category?.replace(/_/g, ' ') || 'General'}</Badge>
+                    </div>
+                    {item.actionItem && (
+                      <div className="mt-4 flex gap-3 rounded-xl bg-slate-50 p-3 text-sm text-slate-600 dark:bg-slate-900 dark:text-slate-300">
+                        <Target className="mt-0.5 h-4 w-4 flex-shrink-0 text-indigo-500" />
+                        <span>{item.actionItem}</span>
+                      </div>
+                    )}
+                  </motion.article>
+                );
+              })}
+            </div>
           )}
-        </div>
-      </div>
+        </Card>
 
-      <div style={{
-        background: riskStyle.bg,
-        border: `1.5px solid ${riskStyle.border}`,
-        borderRadius: 14, padding: '16px 20px', marginBottom: 24,
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      }}>
-        <div>
-          <div style={{ fontSize: 16, fontWeight: 700, color: riskStyle.color }}>
-            Risk Level: {data.riskLevel} · {data.willPass ? '✓ Predicted to Pass' : '⚠ Pass Not Guaranteed'}
-          </div>
-          <div style={{ fontSize: 13, color: riskStyle.color, opacity: .8, marginTop: 4 }}>
-            {allRecs.length} personalised recommendations generated
-          </div>
-        </div>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-          <span style={{
-            fontSize: 13, fontWeight: 700, padding: '6px 14px',
-            borderRadius: 99, background: riskStyle.color, color: '#fff',
-          }}>{data.riskLevel}</span>
-          <span style={{
-            fontSize: 13, fontWeight: 600, padding: '6px 14px',
-            borderRadius: 99, background: 'white',
-            color: riskStyle.color, border: `1px solid ${riskStyle.border}`,
-          }}>Pass: {data.passProbability?.toFixed(1) || 0}%</span>
-        </div>
-      </div>
+        <div className="space-y-4">
+          <Card className="p-5">
+            <SectionTitle title="Risk factors" description="Signals currently influencing the prediction." />
+            <div className="flex flex-wrap gap-2">
+              {(data.topRiskFactors || []).length === 0 ? (
+                <Badge tone="emerald">No major risk factors</Badge>
+              ) : (
+                data.topRiskFactors.map((factor) => <Badge key={factor} tone="amber">{factor.replace(/_/g, ' ')}</Badge>)
+              )}
+            </div>
+          </Card>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)',
-                    gap: 14, marginBottom: 24 }}>
-        <MetricCard label="Avg Score"
-          value={`${a.avgScore?.toFixed(1) || 0}%`}
-          sub="Overall"
-          cardBg={a.avgScore >= 60 ? '#D1FAE5' : '#FEE2E2'}
-          valueColor={a.avgScore >= 60 ? '#065F46' : '#991B1B'} />
-        <MetricCard label="Attendance"
-          value={`${a.attendancePercentage?.toFixed(1) || 0}%`}
-          sub={a.lowAttendanceFlag ? '⚠ Below 75%' : '✓ Good'}
-          cardBg={a.attendancePercentage >= 75 ? '#D1FAE5' : '#FEF3C7'}
-          valueColor={a.attendancePercentage >= 75 ? '#065F46' : '#92400E'} />
-        <MetricCard label="Predicted Score"
-          value={`${data.predictedScore?.toFixed(1) || 0}%`}
-          sub="AI Forecast"
-          cardBg="#EFF6FF"
-          valueColor="#1D4ED8" />
-        <MetricCard label="Risk Score"
-          value={a.riskScore?.toFixed(1) || 0}
-          sub={`${data.riskLevel} Risk`}
-          cardBg={riskStyle.bg}
-          valueColor={riskStyle.color} />
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr',
-                    gap: 16, marginBottom: 8 }}>
-
-        <div style={{
-          background: '#FAFAFA', border: '1.5px solid #E5E7EB',
-          borderRadius: 14, padding: '20px 18px',
-        }}>
-          <div style={{ fontSize: 15, fontWeight: 700,
-                        color: '#111827', marginBottom: 16 }}>
-            Feature Breakdown
-          </div>
-          <ResponsiveContainer width="100%" height={190}>
-            <BarChart data={barData} margin={{ left: -20, bottom: 5 }}>
-              <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#6B7280' }} />
-              <YAxis domain={[0,100]} tick={{ fontSize: 11, fill: '#6B7280' }} />
-              <Tooltip formatter={v => `${v.toFixed(1)}%`}
-                contentStyle={{ fontSize: 13, borderRadius: 8 }} />
-              <Bar dataKey="value" radius={[4,4,0,0]}>
-                {barData.map((_,i) => <Cell key={i} fill={BAR_COLORS[i]} />)}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-
-        <div style={{
-          background: '#F0F9FF', border: '1.5px solid #BAE6FD',
-          borderRadius: 14, padding: '20px 18px',
-        }}>
-          <div style={{ fontSize: 15, fontWeight: 700,
-                        color: '#111827', marginBottom: 16 }}>
-            AI Prediction Summary
-          </div>
-          <div style={{ display: 'flex', alignItems: 'baseline',
-                        gap: 8, marginBottom: 14 }}>
-            <span style={{ fontSize: 40, fontWeight: 800, color: '#1D4ED8' }}>
-              {data.predictedScore?.toFixed(1) || '—'}
-            </span>
-            <span style={{ fontSize: 14, color: '#6B7280' }}>
-              predicted final score
-            </span>
-          </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
-            <span style={{
-              fontSize: 13, fontWeight: 700, padding: '5px 12px',
-              borderRadius: 99, background: riskStyle.color, color: '#fff',
-            }}>{data.riskLevel}</span>
-            <span style={{
-              fontSize: 13, fontWeight: 600, padding: '5px 12px',
-              borderRadius: 99,
-              background: data.willPass ? '#D1FAE5' : '#FEE2E2',
-              color: data.willPass ? '#065F46' : '#991B1B',
-            }}>{data.willPass ? '✓ Likely to Pass' : '⚠ At Risk of Failing'}</span>
-          </div>
-          <div style={{ fontSize: 13, color: '#6B7280', marginBottom: 8 }}>
-            Top risk factors:
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-            {(data.topRiskFactors || []).map(f => (
-              <span key={f} style={{
-                fontSize: 12, padding: '3px 10px',
-                background: '#FEF3C7', borderRadius: 6,
-                color: '#92400E', fontWeight: 500,
-              }}>{f.replace(/_/g,' ')}</span>
-            ))}
-          </div>
-          <div style={{ marginTop: 16, fontSize: 13, color: '#6B7280' }}>
-            Best subject:{' '}
-            <strong style={{ color: '#065F46' }}>{data.bestSubject || '—'}</strong>
-            {'  ·  '}
-            Weakest:{' '}
-            <strong style={{ color: '#991B1B' }}>{data.weakestSubject || '—'}</strong>
-          </div>
+          <Card className="p-5">
+            <SectionTitle title="Academic details" description="Stability and work completion signals." />
+            <div className="space-y-4">
+              {[
+                { label: 'Recent average', value: pct(analytics.recentAvgScore), icon: Activity },
+                { label: 'Assignment rate', value: pct(analytics.assignmentCompletionRate), icon: BookOpenCheck },
+                { label: 'Study consistency', value: `${number(analytics.studyConsistencyScore).toFixed(0)}/100`, icon: TrendingUp },
+                { label: 'Score trend', value: scoreTrend >= 0 ? `+${scoreTrend.toFixed(1)}` : scoreTrend.toFixed(1), icon: scoreTrend >= 0 ? TrendingUp : TrendingDown },
+              ].map(({ label, value, icon: Icon }) => (
+                <div key={label} className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-300">
+                      <Icon className="h-4 w-4" />
+                    </span>
+                    <span className="text-sm text-slate-500 dark:text-slate-400">{label}</span>
+                  </div>
+                  <span className="text-sm font-semibold text-slate-950 dark:text-white">{value}</span>
+                </div>
+              ))}
+            </div>
+          </Card>
         </div>
       </div>
 
       {isStudent && (
-        <>
-          <SectionHeader color="#4C1D95">Log a Study Session</SectionHeader>
-          <div style={{
-            background: '#F5F3FF', border: '1.5px solid #C4B5FD',
-            borderRadius: 14, padding: '20px 22px', marginBottom: 8,
-          }}>
-            <div style={{ fontSize: 14, color: '#6B7280', marginBottom: 16 }}>
-              Logging study hours improves the accuracy of your AI prediction.
+        <Card className="mt-6 p-5">
+          <SectionTitle title="Log a study session" description="Study activity helps the model keep recommendations personal and current." />
+          <div className="grid gap-4 md:grid-cols-4">
+            <div>
+              <label htmlFor="study-subject">Subject</label>
+              <input id="study-subject" value={studySubject} onChange={(event) => setStudySubject(event.target.value)} placeholder="e.g. Data Structures" />
             </div>
-            <div style={{ display: 'grid',
-                          gridTemplateColumns: 'repeat(4,1fr)', gap: 14,
-                          marginBottom: 16 }}>
-              <div>
-                <label style={{ fontSize: 13, color: '#374151',
-                                fontWeight: 600, display: 'block', marginBottom: 6 }}>
-                  Subject
-                </label>
-                <input value={studySubject}
-                  onChange={e => setStudySubject(e.target.value)}
-                  placeholder="e.g. DSA"
-                  style={{ width: '100%', fontSize: 14, padding: '8px 12px',
-                           borderRadius: 8, border: '1px solid #D1D5DB' }} />
-              </div>
-              <div>
-                <label style={{ fontSize: 13, color: '#374151',
-                                fontWeight: 600, display: 'block', marginBottom: 6 }}>
-                  Date
-                </label>
-                <input type="date" value={studyDate}
-                  onChange={e => setStudyDate(e.target.value)}
-                  style={{ width: '100%', fontSize: 14, padding: '8px 12px',
-                           borderRadius: 8, border: '1px solid #D1D5DB' }} />
-              </div>
-              <div>
-                <label style={{ fontSize: 13, color: '#374151',
-                                fontWeight: 600, display: 'block', marginBottom: 6 }}>
-                  Hours Studied
-                </label>
-                <input type="number" step="0.5" min="0.5" max="16"
-                  value={studyHours}
-                  onChange={e => setStudyHours(e.target.value)}
-                  placeholder="e.g. 1.5"
-                  style={{ width: '100%', fontSize: 14, padding: '8px 12px',
-                           borderRadius: 8, border: '1px solid #D1D5DB' }} />
-              </div>
-              <div style={{ display: 'flex', alignItems: 'flex-end', paddingBottom: 2 }}>
-                <label style={{ display: 'flex', alignItems: 'center',
-                                gap: 8, fontSize: 14, cursor: 'pointer',
-                                color: '#374151', fontWeight: 500 }}>
-                  <input type="checkbox" checked={studyRev}
-                    onChange={e => setStudyRev(e.target.checked)} />
-                  Revision session
-                </label>
-              </div>
+            <div>
+              <label htmlFor="study-date">Date</label>
+              <input id="study-date" type="date" value={studyDate} onChange={(event) => setStudyDate(event.target.value)} />
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-              <Btn label="Save Study Session" color="#7C3AED"
-                   loading={savingStudy} onClick={handleLogStudy} />
-              {studyMsg && (
-                <span style={{
-                  fontSize: 13, fontWeight: 500,
-                  color: studyMsg.includes('Failed') ? '#991B1B' : '#065F46',
-                }}>{studyMsg}</span>
-              )}
+            <div>
+              <label htmlFor="study-hours">Hours</label>
+              <input id="study-hours" type="number" step="0.5" min="0.5" max="16" value={studyHours} onChange={(event) => setStudyHours(event.target.value)} placeholder="1.5" />
             </div>
+            <label className="flex items-end gap-3 rounded-2xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950">
+              <input className="h-4 w-4 rounded border-slate-300 p-0 text-indigo-600 focus:ring-indigo-500" type="checkbox" checked={studyRev} onChange={(event) => setStudyRev(event.target.checked)} />
+              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Revision session</span>
+            </label>
           </div>
-        </>
-      )}
-
-      <SectionHeader>Academic Details</SectionHeader>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)',
-                    gap: 14, marginBottom: 8 }}>
-        <MetricCard label="Recent Avg (Last 3)"
-          value={`${a.recentAvgScore?.toFixed(1) || 0}%`}
-          cardBg="#EFF6FF" valueColor="#1D4ED8" />
-        <MetricCard label="Score Trend"
-          value={a.scoreTrend >= 0
-            ? `+${a.scoreTrend?.toFixed(1)}` : `${a.scoreTrend?.toFixed(1)}`}
-          sub={a.scoreTrend >= 0 ? '↑ Improving' : '↓ Declining'}
-          cardBg={a.scoreTrend >= 0 ? '#D1FAE5' : '#FEE2E2'}
-          valueColor={a.scoreTrend >= 0 ? '#065F46' : '#991B1B'} />
-        <MetricCard label="Weekly Study Hours"
-          value={`${a.weeklyStudyHours?.toFixed(1) || 0}h`}
-          sub="Avg per week"
-          cardBg="#FEF3C7" valueColor="#92400E" />
-        <MetricCard label="Assignment Rate"
-          value={`${a.assignmentCompletionRate?.toFixed(0) || 0}%`}
-          sub="Submitted"
-          cardBg={a.assignmentCompletionRate >= 80 ? '#D1FAE5' : '#FEE2E2'}
-          valueColor={a.assignmentCompletionRate >= 80 ? '#065F46' : '#991B1B'} />
-        <MetricCard label="Study Consistency"
-          value={`${a.studyConsistencyScore?.toFixed(0) || 0}/100`}
-          cardBg="#F5F3FF" valueColor="#4C1D95" />
-        <MetricCard label="Consistency Index"
-          value={`${a.consistencyIndex?.toFixed(0) || 0}/100`}
-          sub="Overall stability"
-          cardBg="#FDF4FF" valueColor="#7E22CE" />
-      </div>
-
-      <SectionHeader>Recommendations ({allRecs.length})</SectionHeader>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {allRecs.length === 0 ? (
-          <div style={{ padding: '20px', fontSize: 14, color: '#6B7280',
-                        background: '#F9FAFB', borderRadius: 12 }}>
-            No recommendations yet. Click "Refresh Analysis" to generate them.
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <Button onClick={handleLogStudy} disabled={savingStudy}>
+              {savingStudy ? 'Saving...' : 'Save session'}
+            </Button>
+            {studyMsg && <p className={`text-sm font-medium ${studyMsg.includes('Failed') || studyMsg.includes('Enter') ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>{studyMsg}</p>}
           </div>
-        ) : allRecs.map((r, i) => {
-          const ps = PRIORITY[r.priority] || PRIORITY.LOW;
-          return (
-            <div key={r.id || i} style={{
-              background: ps.bg,
-              border: `1.5px solid ${ps.border}`,
-              borderRadius: 12, padding: '16px 18px',
-            }}>
-              <div style={{ display: 'flex', alignItems: 'flex-start',
-                            justifyContent: 'space-between', gap: 12,
-                            marginBottom: 8 }}>
-                <div style={{ fontSize: 15, color: '#111827',
-                              lineHeight: 1.6, flex: 1, fontWeight: 500 }}>
-                  {r.message}
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column',
-                              alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
-                  <span style={{
-                    fontSize: 12, fontWeight: 700, padding: '4px 12px',
-                    borderRadius: 99, background: ps.color, color: '#fff',
-                  }}>{r.priority}</span>
-                  <span style={{
-                    fontSize: 11, padding: '2px 8px',
-                    background: 'rgba(255,255,255,0.7)',
-                    borderRadius: 6, color: ps.color, fontWeight: 600,
-                  }}>{r.category?.replace(/_/g,' ')}</span>
-                </div>
-              </div>
-              <div style={{
-                fontSize: 14, color: ps.color, fontWeight: 600,
-                lineHeight: 1.5, paddingLeft: 12,
-                borderLeft: `3px solid ${ps.dot}`,
-              }}>→ {r.actionItem}</div>
-            </div>
-          );
-        })}
-      </div>
-
-      {isTeacher && (
-        <div style={{
-          marginTop: 24, padding: '14px 18px',
-          background: '#F9FAFB', borderRadius: 12,
-          fontSize: 13, color: '#6B7280',
-          border: '1px solid #E5E7EB',
-        }}>
-          Teacher view: click <strong>Edit Student Data</strong> to add marks, attendance,
-          assignments and engagement logs. Changes automatically refresh predictions.
-        </div>
+        </Card>
       )}
     </div>
   );

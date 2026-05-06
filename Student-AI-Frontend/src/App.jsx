@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
-import Sidebar        from './components/Sidebar';
+import AppShell       from './components/AppShell';
 import Login          from './pages/Login';
 import Register       from './pages/Register';
 import Students       from './pages/Students';
@@ -10,20 +10,7 @@ import Dashboard      from './pages/Dashboard';
 import Predictions    from './pages/Predictions';
 
 function Layout({ children }) {
-  return (
-    <div style={{
-      display: 'flex', minHeight: '100vh',
-      background: 'var(--color-background-tertiary)',
-    }}>
-      <Sidebar />
-      <div style={{
-        flex: 1, marginLeft: 220,
-        padding: '28px 32px',
-      }}>
-        {children}
-      </div>
-    </div>
-  );
+  return <AppShell>{children}</AppShell>;
 }
 
 function P({ children, teacherOnly = false }) {

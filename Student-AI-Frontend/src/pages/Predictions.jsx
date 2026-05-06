@@ -1,256 +1,193 @@
-import { useEffect, useState } from 'react';
-import { studentAPI, dashboardAPI } from '../api/api';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { AlertTriangle, ArrowUpRight, Brain, CheckCircle2, RefreshCcw, Target, Users } from 'lucide-react';
+import { dashboardAPI, studentAPI } from '../api/api';
+import { Badge, Button, Card, EmptyState, MetricCard, PageHeader } from '../components/ui/DashboardPrimitives';
 
-const RISK_STYLE = {
-  HIGH:   { bg: '#FAECE7', color: '#993C1D', border: '#F0997B' },
-  MEDIUM: { bg: '#FAEEDA', color: '#854F0B', border: '#FAC775' },
-  LOW:    { bg: '#E1F5EE', color: '#085041', border: '#5DCAA5' },
+const RISK_TONE = {
+  HIGH: 'red',
+  MEDIUM: 'amber',
+  LOW: 'emerald',
 };
 
-function RiskBadge({ level }) {
-  const s = RISK_STYLE[level] || RISK_STYLE.LOW;
-  return (
-    <span style={{
-      fontSize: 11, fontWeight: 500, padding: '3px 10px',
-      borderRadius: 99, background: s.bg, color: s.color,
-    }}>{level}</span>
-  );
+function initials(name = '') {
+  return name
+    .split(' ')
+    .map((part) => part[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2) || 'ST';
 }
 
-function ScoreBar({ value, max = 100, color = '#1D9E75' }) {
+function valueOrDash(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? `${number.toFixed(1)}%` : '-';
+}
+
+function Progress({ value = 0, tone = 'indigo' }) {
+  const colors = {
+    indigo: 'bg-indigo-600',
+    emerald: 'bg-emerald-500',
+    amber: 'bg-amber-500',
+    red: 'bg-red-500',
+  };
+
   return (
-    <div style={{ flex: 1, height: 6,
-                  background: 'var(--color-background-secondary)',
-                  borderRadius: 3, overflow: 'hidden' }}>
-      <div style={{
-        height: '100%', borderRadius: 3,
-        width: `${Math.min(100, (value / max) * 100)}%`,
-        background: color, transition: 'width .4s',
-      }}/>
+    <div className="h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+      <div className={`h-full rounded-full ${colors[tone] || colors.indigo}`} style={{ width: `${Math.max(0, Math.min(100, Number(value) || 0))}%` }} />
     </div>
   );
 }
 
 export default function Predictions() {
-  const [students,    setStudents]    = useState([]);
+  const [students, setStudents] = useState([]);
   const [predictions, setPredictions] = useState({});
-  const [loading,     setLoading]     = useState(true);
-  const [fetching,    setFetching]    = useState({});
+  const [loading, setLoading] = useState(true);
+  const [fetching, setFetching] = useState({});
+  const [refreshingAll, setRefreshingAll] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
     studentAPI.getAll()
-      .then(r => { setStudents(r.data); setLoading(false); });
+      .then((response) => setStudents(response.data))
+      .finally(() => setLoading(false));
   }, []);
 
   const fetchPrediction = async (studentId) => {
-    setFetching(p => ({ ...p, [studentId]: true }));
+    setFetching((previous) => ({ ...previous, [studentId]: true }));
     try {
-      const r = await dashboardAPI.get(studentId);
-      setPredictions(p => ({ ...p, [studentId]: r.data }));
+      const response = await dashboardAPI.get(studentId);
+      setPredictions((previous) => ({ ...previous, [studentId]: response.data }));
     } catch {
-      setPredictions(p => ({
-        ...p, [studentId]: { error: 'No analytics data yet.' }
-      }));
+      setPredictions((previous) => ({ ...previous, [studentId]: { error: 'No analytics data yet.' } }));
     } finally {
-      setFetching(p => ({ ...p, [studentId]: false }));
+      setFetching((previous) => ({ ...previous, [studentId]: false }));
     }
   };
 
   const fetchAll = async () => {
-    setLoading(true);
-    await Promise.all(students.map(s => fetchPrediction(s.id)));
-    setLoading(false);
+    setRefreshingAll(true);
+    await Promise.all(students.map((student) => fetchPrediction(student.id)));
+    setRefreshingAll(false);
   };
 
-  if (loading) return (
-    <div style={{ fontSize: 14, color: 'var(--color-text-secondary)' }}>
-      Loading students...
-    </div>
-  );
+  const analysed = useMemo(() => students.filter((student) => predictions[student.id] && !predictions[student.id].error), [students, predictions]);
+  const highRisk = analysed.filter((student) => predictions[student.id]?.riskLevel === 'HIGH');
+  const classAverage = analysed.length
+    ? analysed.reduce((acc, student) => acc + (Number(predictions[student.id]?.predictedScore) || 0), 0) / analysed.length
+    : 0;
 
-  const withPreds = students.filter(s => predictions[s.id] && !predictions[s.id].error);
-  const highRisk  = withPreds.filter(s => predictions[s.id]?.riskLevel === 'HIGH');
+  if (loading) {
+    return (
+      <div className="space-y-5">
+        <div className="h-24 skeleton" />
+        <div className="grid gap-4 md:grid-cols-3">
+          {[0, 1, 2].map((item) => <div key={item} className="h-28 skeleton" />)}
+        </div>
+        <div className="h-96 skeleton" />
+      </div>
+    );
+  }
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between',
-                    alignItems: 'flex-start', marginBottom: 20 }}>
-        <div>
-          <div style={{ fontSize: 18, fontWeight: 500,
-                        color: 'var(--color-text-primary)' }}>AI Predictions</div>
-          <div style={{ fontSize: 13, color: 'var(--color-text-secondary)',
-                        marginTop: 2 }}>
-            Predicted scores and risk levels for all students
-          </div>
-        </div>
-        <button onClick={fetchAll} style={{
-          padding: '9px 18px', fontSize: 13, fontWeight: 500,
-          background: '#1D9E75', color: '#fff', border: 'none',
-          borderRadius: 'var(--border-radius-md)', cursor: 'pointer',
-        }}>Refresh all predictions</button>
+      <PageHeader
+        eyebrow="AI prediction queue"
+        title="AI Predictions"
+        description="Run class-wide forecasting, compare risk levels, and jump into dashboards for intervention planning."
+        actions={
+          <Button onClick={fetchAll} disabled={refreshingAll || students.length === 0}>
+            <RefreshCcw className={refreshingAll ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} />
+            {refreshingAll ? 'Analyzing...' : 'Analyze all'}
+          </Button>
+        }
+      />
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <MetricCard label="Students analyzed" value={analysed.length} sub={`${students.length} total students`} icon={Users} tone="indigo" />
+        <MetricCard label="At-risk students" value={highRisk.length} sub="High-risk forecast" icon={AlertTriangle} tone={highRisk.length ? 'red' : 'emerald'} />
+        <MetricCard label="Class average" value={analysed.length ? `${classAverage.toFixed(1)}%` : '-'} sub="Predicted score" icon={Brain} tone="emerald" />
       </div>
 
-      {withPreds.length > 0 && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)',
-                      gap: 12, marginBottom: 20 }}>
-          <div style={{ background: 'var(--color-background-secondary)',
-                        borderRadius: 'var(--border-radius-md)',
-                        padding: '14px 16px' }}>
-            <div style={{ fontSize: 11, color: 'var(--color-text-secondary)',
-                          textTransform: 'uppercase',
-                          letterSpacing: '.04em', marginBottom: 6 }}>
-              Students analysed
+      <Card className="mt-6 overflow-hidden">
+        <div className="border-b border-slate-200 p-4 dark:border-slate-800">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="font-semibold text-slate-950 dark:text-white">Prediction roster</h2>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Compact rows keep the workflow fast even when the class grows.</p>
             </div>
-            <div style={{ fontSize: 22, fontWeight: 500,
-                          color: 'var(--color-text-primary)' }}>
-              {withPreds.length}
-            </div>
-          </div>
-          <div style={{ background: '#FAECE7', borderRadius: 'var(--border-radius-md)',
-                        padding: '14px 16px' }}>
-            <div style={{ fontSize: 11, color: '#854F0B', textTransform: 'uppercase',
-                          letterSpacing: '.04em', marginBottom: 6 }}>
-              High risk
-            </div>
-            <div style={{ fontSize: 22, fontWeight: 500, color: '#993C1D' }}>
-              {highRisk.length}
-            </div>
-          </div>
-          <div style={{ background: '#E1F5EE', borderRadius: 'var(--border-radius-md)',
-                        padding: '14px 16px' }}>
-            <div style={{ fontSize: 11, color: '#085041', textTransform: 'uppercase',
-                          letterSpacing: '.04em', marginBottom: 6 }}>
-              Class avg predicted
-            </div>
-            <div style={{ fontSize: 22, fontWeight: 500, color: '#0F6E56' }}>
-              {withPreds.length > 0
-                ? (withPreds.reduce((acc, s) =>
-                    acc + (predictions[s.id]?.predictedScore || 0), 0
-                  ) / withPreds.length).toFixed(1) + '%'
-                : '—'}
-            </div>
+            <Badge tone="slate">{students.length} students</Badge>
           </div>
         </div>
-      )}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {students.map(s => {
-          const pred = predictions[s.id];
-          const busy = fetching[s.id];
-          const rs   = pred?.riskLevel ? (RISK_STYLE[pred.riskLevel] || RISK_STYLE.LOW) : null;
+        {students.length === 0 ? (
+          <div className="p-6">
+            <EmptyState title="No students available" description="Create students first, then run predictions." />
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-200 dark:divide-slate-800">
+            {students.map((student) => {
+              const prediction = predictions[student.id];
+              const tone = RISK_TONE[prediction?.riskLevel] || 'slate';
 
-          return (
-            <div key={s.id} style={{
-              background: 'var(--color-background-primary)',
-              border: `0.5px solid ${rs ? rs.border : 'var(--color-border-tertiary)'}`,
-              borderRadius: 'var(--border-radius-lg)',
-              padding: '16px 20px',
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-
-                <div style={{
-                  width: 38, height: 38, borderRadius: '50%',
-                  background: '#E1F5EE', display: 'flex',
-                  alignItems: 'center', justifyContent: 'center',
-                  fontSize: 12, fontWeight: 500, color: '#085041', flexShrink: 0,
-                }}>
-                  {s.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0,2)}
-                </div>
-
-                {/* Name + dept */}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 500,
-                                color: 'var(--color-text-primary)' }}>{s.name}</div>
-                  <div style={{ fontSize: 12,
-                                color: 'var(--color-text-secondary)' }}>
-                    {s.department} · Sem {s.semester}
-                  </div>
-                </div>
-
-                {pred && !pred.error ? (
-                  <div style={{ display: 'flex', alignItems: 'center',
-                                gap: 20, flexShrink: 0 }}>
-
-                    <div style={{ width: 140 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between',
-                                    marginBottom: 4 }}>
-                        <span style={{ fontSize: 11,
-                                       color: 'var(--color-text-secondary)' }}>
-                          Predicted
-                        </span>
-                        <span style={{ fontSize: 12, fontWeight: 500,
-                                       color: 'var(--color-text-primary)' }}>
-                          {pred.predictedScore?.toFixed(1)}%
-                        </span>
+              return (
+                <article key={student.id} className="p-4 transition hover:bg-slate-50 dark:hover:bg-slate-900/60">
+                  <div className="grid gap-4 xl:grid-cols-[minmax(220px,1fr)_minmax(380px,1.4fr)_auto] xl:items-center">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-indigo-50 text-sm font-semibold text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300">
+                        {initials(student.name)}
                       </div>
-                      <ScoreBar value={pred.predictedScore}
-                        color={pred.predictedScore >= 60 ? '#1D9E75' :
-                               pred.predictedScore >= 40 ? '#EF9F27' : '#D85A30'} />
+                      <div className="min-w-0">
+                        <p className="truncate font-semibold text-slate-950 dark:text-white">{student.name}</p>
+                        <p className="truncate text-sm text-slate-500 dark:text-slate-400">{student.department} / Sem {student.semester}</p>
+                      </div>
                     </div>
 
-                    <div style={{ width: 110 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between',
-                                    marginBottom: 4 }}>
-                        <span style={{ fontSize: 11,
-                                       color: 'var(--color-text-secondary)' }}>
-                          Pass prob
-                        </span>
-                        <span style={{ fontSize: 12, fontWeight: 500,
-                                       color: 'var(--color-text-primary)' }}>
-                          {pred.passProbability?.toFixed(1)}%
-                        </span>
+                    {prediction && !prediction.error ? (
+                      <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-center">
+                        <div>
+                          <div className="mb-1 flex justify-between text-xs text-slate-500 dark:text-slate-400">
+                            <span>Predicted score</span>
+                            <span className="font-semibold text-slate-700 dark:text-slate-300">{valueOrDash(prediction.predictedScore)}</span>
+                          </div>
+                          <Progress value={prediction.predictedScore} tone={Number(prediction.predictedScore) >= 60 ? 'emerald' : Number(prediction.predictedScore) >= 45 ? 'amber' : 'red'} />
+                        </div>
+                        <div>
+                          <div className="mb-1 flex justify-between text-xs text-slate-500 dark:text-slate-400">
+                            <span>Pass confidence</span>
+                            <span className="font-semibold text-slate-700 dark:text-slate-300">{valueOrDash(prediction.passProbability)}</span>
+                          </div>
+                          <Progress value={prediction.passProbability} tone={prediction.willPass ? 'emerald' : 'red'} />
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge tone={tone}>{prediction.riskLevel || 'Unknown'}</Badge>
+                          <Badge tone={prediction.willPass ? 'emerald' : 'red'}>
+                            {prediction.willPass ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Target className="h-3.5 w-3.5" />}
+                            {prediction.willPass ? 'Pass likely' : 'Action needed'}
+                          </Badge>
+                        </div>
                       </div>
-                      <ScoreBar value={pred.passProbability}
-                        color={pred.willPass ? '#1D9E75' : '#D85A30'} />
-                    </div>
+                    ) : prediction?.error ? (
+                      <div className="rounded-2xl bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">
+                        {prediction.error}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-slate-500 dark:text-slate-400">Run analysis to generate a forecast for this student.</p>
+                    )}
 
-                    <RiskBadge level={pred.riskLevel} />
-
-                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap',
-                                  maxWidth: 180 }}>
-                      {(pred.topRiskFactors || []).slice(0, 2).map(f => (
-                        <span key={f} style={{
-                          fontSize: 10, padding: '2px 6px',
-                          background: 'var(--color-background-secondary)',
-                          borderRadius: 4, color: 'var(--color-text-secondary)',
-                        }}>{f.replace(/_/g,' ')}</span>
-                      ))}
+                    <div className="flex flex-wrap gap-2 xl:justify-end">
+                      <Button size="sm" onClick={() => navigate(`/dashboard/${student.id}`)}>
+                        Details
+                        <ArrowUpRight className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
-                ) : pred?.error ? (
-                  <span style={{ fontSize: 12,
-                                 color: 'var(--color-text-secondary)' }}>
-                    {pred.error}
-                  </span>
-                ) : null}
-
-                <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-                  {!pred && (
-                    <button onClick={() => fetchPrediction(s.id)}
-                      disabled={busy} style={{
-                        padding: '7px 14px', fontSize: 12, fontWeight: 500,
-                        background: 'var(--color-background-secondary)',
-                        color: 'var(--color-text-primary)',
-                        border: '0.5px solid var(--color-border-tertiary)',
-                        borderRadius: 'var(--border-radius-md)', cursor: 'pointer',
-                      }}>
-                      {busy ? 'Loading...' : 'Analyse'}
-                    </button>
-                  )}
-                  <button onClick={() => navigate(`/dashboard/${s.id}`)} style={{
-                    padding: '7px 14px', fontSize: 12, fontWeight: 500,
-                    background: '#1D9E75', color: '#fff',
-                    border: 'none', borderRadius: 'var(--border-radius-md)',
-                    cursor: 'pointer',
-                  }}>Dashboard</button>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </Card>
     </div>
   );
 }
