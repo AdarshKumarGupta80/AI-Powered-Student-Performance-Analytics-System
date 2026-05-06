@@ -1,4 +1,4 @@
-INSERT INTO users (id, email, password, name, role) VALUES
+INSERT IGNORE INTO users (id, email, password, name, role) VALUES
 (1, 'rinky@gmail.com', '$2a$12$TskceGisH25fkXf8pBe6TuyeHytZUbp1ViDurFGySMMpblFncBdpG', 'Rinky Dubey', 'TEACHER'),
 (2, 'john@gmail.com', '$2a$12$TskceGisH25fkXf8pBe6TuyeHytZUbp1ViDurFGySMMpblFncBdpG', 'John Dubey', 'TEACHER'),
 
@@ -14,7 +14,7 @@ INSERT INTO users (id, email, password, name, role) VALUES
 (12,'vikas@gmail.com', '$2a$12$/jg/ER.e/X0uHU30pyiKSesIdm/.fYEnD9jzn49dnWkaG9wq4Hhe2', 'Vikas Yadav', 'STUDENT');
 
 
-INSERT INTO students (id, name, email,enrollment_number,department, semester, user_id) VALUES
+INSERT IGNORE INTO students (id, name, email,enrollment_number,department, semester, user_id) VALUES
 (1, 'Rahul Sharma', 'rahul@gmail.com','CSE-001', 'CSE', 3, 3),
 (2, 'Abdul Sharma', 'abdul@gmail.com', 'CSE-002','CSE', 3, 4),
 (3, 'Rakesh Kumar', 'rakesh@gmail.com','CSE-003', 'CSE', 3, 5),
@@ -26,7 +26,7 @@ INSERT INTO students (id, name, email,enrollment_number,department, semester, us
 (9, 'Arjun Reddy', 'arjun@gmail.com', 'CSE-009','CSE', 3,11),
 (10,'Vikas Yadav', 'vikas@gmail.com', 'CSE-010','CSE', 3,12);
 
-INSERT INTO marks (student_id, subject, score, max_score, exam_type) VALUES
+INSERT IGNORE INTO marks (student_id, subject, score, max_score, exam_type) VALUES
 (1,'DSA',75,100,'MIDTERM'),(1,'Science',40,100,'MIDTERM'),
 (2,'DSA',60,100,'MIDTERM'),(2,'Science',50,100,'MIDTERM'),
 (3,'DSA',30,100,'MIDTERM'),(3,'Science',25,100,'MIDTERM'),
@@ -38,7 +38,7 @@ INSERT INTO marks (student_id, subject, score, max_score, exam_type) VALUES
 (9,'DSA',50,100,'MIDTERM'),(9,'Science',55,100,'MIDTERM'),
 (10,'DSA',35,100,'MIDTERM'),(10,'Science',20,100,'MIDTERM');
 
-INSERT INTO attendance (student_id, subject, month, year, classes_held, classes_attended) VALUES
+INSERT IGNORE INTO attendance (student_id, subject, month, year, classes_held, classes_attended) VALUES
 (1,'DSA',4,2026,30,20),
 (2,'DSA',4,2026,30,25),
 (3,'DSA',4,2026,30,10),
@@ -50,7 +50,7 @@ INSERT INTO attendance (student_id, subject, month, year, classes_held, classes_
 (9,'DSA',4,2026,30,21),
 (10,'DSA',4,2026,30,15);
 
-INSERT INTO assignments (student_id, subject, title, score, max_score, status) VALUES
+INSERT IGNORE INTO assignments (student_id, subject, title, score, max_score, status) VALUES
 (1,'DSA','A1',70,100,'SUBMITTED_ON_TIME'),
 (2,'DSA','A1',60,100,'SUBMITTED_LATE'),
 (3,'DSA','A1',20,100,'NOT_SUBMITTED'),
@@ -62,7 +62,7 @@ INSERT INTO assignments (student_id, subject, title, score, max_score, status) V
 (9,'DSA','A1',50,100,'SUBMITTED_LATE'),
 (10,'DSA','A1',25,100,'NOT_SUBMITTED');
 
-INSERT INTO study_sessions (student_id, subject, hours_studied, revision_session) VALUES
+INSERT IGNORE INTO study_sessions (student_id, subject, hours_studied, revision_session) VALUES
 (1,'DSA',10,true),
 (2,'DSA',12,false),
 (3,'DSA',5,false),
@@ -74,7 +74,7 @@ INSERT INTO study_sessions (student_id, subject, hours_studied, revision_session
 (9,'DSA',9,false),
 (10,'DSA',6,false);
 
-INSERT INTO engagement_logs (student_id, login_count, session_duration_minutes, materials_accessed, lecture_completion_rate) VALUES
+INSERT IGNORE INTO engagement_logs (student_id, login_count, session_duration_minutes, materials_accessed, lecture_completion_rate) VALUES
 (1,10,200,15,70),
 (2,12,250,18,75),
 (3,5,100,5,40),
