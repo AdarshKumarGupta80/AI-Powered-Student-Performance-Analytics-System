@@ -155,14 +155,16 @@ export default function Dashboard() {
     UNKNOWN: { bg: '#F3F4F6', color: '#374151', border: '#D1D5DB' },
   }[data.riskLevel] || { bg: '#F3F4F6', color: '#374151', border: '#D1D5DB' };
 
+
+const rawLecture = a.avgLectureCompletionRate || 0;
+const lecturePercent = rawLecture > 1 ? rawLecture : rawLecture * 100;
   const barData = [
     { name: 'Avg score',   value: +(a.avgScore || 0).toFixed(1) },
     { name: 'Attendance',  value: +(a.attendancePercentage || 0).toFixed(1) },
     { name: 'Assignment',  value: +(a.assignmentCompletionRate || 0).toFixed(1) },
     { name: 'Consistency', value: +(a.consistencyIndex || 0).toFixed(1) },
     { name: 'Study hrs×4', value: +Math.min(100,(a.weeklyStudyHours||0)*4).toFixed(1) },
-    { name: 'Lecture %',   value: +((a.avgLectureCompletionRate||0)*100).toFixed(1) },
-  ];
+{ name: 'Lecture %', value: +lecturePercent.toFixed(1) },  ];
 
   return (
     <div style={{ maxWidth: 1100, fontSize: 15 }}>

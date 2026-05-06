@@ -12,15 +12,15 @@ export default function FeatureBarChart({ analytics }) {
   if (!analytics) return null;
 
   const a = analytics;
-
+const rawLecture = a.avgLectureCompletionRate || 0;
+const lecturePercent = rawLecture > 1 ? rawLecture : rawLecture * 100;
   const data = [
     { name: 'Avg score',   value: +(a.avgScore         || 0).toFixed(1) },
     { name: 'Attendance',  value: +(a.attendancePercentage || 0).toFixed(1) },
     { name: 'Assignment',  value: +(a.assignmentCompletionRate || 0).toFixed(1) },
     { name: 'Consistency', value: +(a.consistencyIndex  || 0).toFixed(1) },
     { name: 'Study ×4',    value: +Math.min(100, (a.weeklyStudyHours || 0) * 4).toFixed(1) },
-    { name: 'Lecture %',   value: +((a.avgLectureCompletionRate || 0) * 100).toFixed(1) },
-  ];
+{ name: 'Lecture %', value: +lecturePercent.toFixed(1) },  ];
 
   const CustomTooltip = ({ active, payload, label }) => {
     if (!active || !payload?.length) return null;
