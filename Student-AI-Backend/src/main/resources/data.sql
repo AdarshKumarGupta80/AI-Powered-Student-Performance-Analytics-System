@@ -14,17 +14,17 @@ INSERT INTO users (id, email, password, name, role) VALUES
 (12,'vikas@gmail.com', '$2a$12$/jg/ER.e/X0uHU30pyiKSesIdm/.fYEnD9jzn49dnWkaG9wq4Hhe2', 'Vikas Yadav', 'STUDENT');
 
 
-INSERT INTO students (id, name, email, department, semester, user_id) VALUES
-(1, 'Rahul Sharma', 'rahul@gmail.com', 'CSE', 3, 3),
-(2, 'Abdul Sharma', 'abdul@gmail.com', 'CSE', 3, 4),
-(3, 'Rakesh Kumar', 'rakesh@gmail.com', 'CSE', 3, 5),
-(4, 'Amit Singh', 'amit@gmail.com', 'CSE', 3, 6),
-(5, 'Neha Verma', 'neha@gmail.com', 'CSE', 3, 7),
-(6, 'Priya Patel', 'priya@gmail.com', 'CSE', 3, 8),
-(7, 'Karan Mehta', 'karan@gmail.com', 'CSE', 3, 9),
-(8, 'Sneha Iyer', 'sneha@gmail.com', 'CSE', 3,10),
-(9, 'Arjun Reddy', 'arjun@gmail.com', 'CSE', 3,11),
-(10,'Vikas Yadav', 'vikas@gmail.com', 'CSE', 3,12);
+INSERT INTO students (id, name, email,enrollment_number,department, semester, user_id) VALUES
+(1, 'Rahul Sharma', 'rahul@gmail.com','CSE-001', 'CSE', 3, 3),
+(2, 'Abdul Sharma', 'abdul@gmail.com', 'CSE-002','CSE', 3, 4),
+(3, 'Rakesh Kumar', 'rakesh@gmail.com','CSE-003', 'CSE', 3, 5),
+(4, 'Amit Singh', 'amit@gmail.com','CSE-004', 'CSE', 3, 6),
+(5, 'Neha Verma', 'neha@gmail.com','CSE-005', 'CSE', 3, 7),
+(6, 'Priya Patel', 'priya@gmail.com', 'CSE-006','CSE', 3, 8),
+(7, 'Karan Mehta', 'karan@gmail.com', 'CSE-007','CSE', 3, 9),
+(8, 'Sneha Iyer', 'sneha@gmail.com','CSE-008', 'CSE', 3,10),
+(9, 'Arjun Reddy', 'arjun@gmail.com', 'CSE-009','CSE', 3,11),
+(10,'Vikas Yadav', 'vikas@gmail.com', 'CSE-010','CSE', 3,12);
 
 INSERT INTO marks (student_id, subject, score, max_score, exam_type) VALUES
 (1,'DSA',75,100,'MIDTERM'),(1,'Science',40,100,'MIDTERM'),
