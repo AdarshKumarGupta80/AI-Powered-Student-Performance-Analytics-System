@@ -54,6 +54,64 @@ function pct(value) {
   return `${number(value).toFixed(1)}%`;
 }
 
+function buildPredictionInsight(data, analytics, lecturePercent) {
+  const studentName = data?.studentName || 'This student';
+  const avgScore = number(analytics.avgScore);
+  const recentAvg = number(analytics.recentAvgScore, avgScore);
+  const scoreTrend = number(analytics.scoreTrend);
+  const attendance = number(analytics.attendancePercentage);
+  const assignmentRate = number(analytics.assignmentCompletionRate);
+  const weeklyHours = number(analytics.weeklyStudyHours);
+  const consistency = number(analytics.consistencyIndex);
+  const predictedScore = number(data?.predictedScore);
+  const passProbability = number(data?.passProbability);
+  const riskLevel = data?.riskLevel || analytics.riskLevel || 'UNKNOWN';
+  const weakestSubject = data?.weakestSubject && data.weakestSubject !== 'N/A' ? data.weakestSubject : '';
+  const riskFactors = (data?.topRiskFactors || []).map((factor) => factor.replace(/_/g, ' ').toLowerCase());
+
+  const momentum = scoreTrend > 2
+    ? `recent scores are improving by ${scoreTrend.toFixed(1)} points`
+    : scoreTrend < -2
+    ? `recent scores are declining by ${Math.abs(scoreTrend).toFixed(1)} points`
+    : 'recent scores are mostly stable';
+
+  const summary = `${studentName} is at ${riskLevel.toLowerCase()} academic risk with a predicted score of ${predictedScore.toFixed(1)}% and ${passProbability.toFixed(1)}% pass confidence. ${momentum.charAt(0).toUpperCase() + momentum.slice(1)}.`;
+
+  let reason = `The prediction is supported by ${avgScore.toFixed(1)}% average score, ${attendance.toFixed(1)}% attendance, ${assignmentRate.toFixed(1)}% assignment completion, and ${consistency.toFixed(1)}/100 consistency.`;
+  if (attendance < 75) {
+    reason = `Attendance is the strongest risk signal at ${attendance.toFixed(1)}%, which can reduce learning continuity.`;
+  } else if (scoreTrend < -2) {
+    reason = `The main concern is a downward score trend, even though the recent average is ${recentAvg.toFixed(1)}%.`;
+  } else if (assignmentRate < 80) {
+    reason = `Incomplete coursework is limiting confidence, with assignment completion at ${assignmentRate.toFixed(1)}%.`;
+  } else if (weeklyHours < 5 || consistency < 55) {
+    reason = `Study discipline needs attention: weekly study is ${weeklyHours.toFixed(1)} hours and consistency is ${consistency.toFixed(1)}/100.`;
+  } else if (riskFactors.length > 0) {
+    reason = `Key influencing factors are ${riskFactors.slice(0, 3).join(', ')}.`;
+  } else if (lecturePercent < 60) {
+    reason = `Lecture completion is low at ${lecturePercent.toFixed(1)}%, which may affect concept coverage.`;
+  }
+
+  let nextAction = 'Maintain the current learning rhythm and keep monitoring attendance, assignments, and recent scores.';
+  if (attendance < 75) {
+    nextAction = 'Prioritize attendance recovery and review missed topics before the next assessment.';
+  } else if (assignmentRate < 80) {
+    nextAction = 'Complete pending assignments and review submission status every week.';
+  } else if (scoreTrend < -2) {
+    nextAction = 'Schedule focused revision for recent low-scoring topics and monitor the next test closely.';
+  } else if (weeklyHours < 5 || consistency < 55) {
+    nextAction = 'Set a consistent weekly study plan with short revision sessions across the week.';
+  } else if (weakestSubject) {
+    nextAction = `Keep progress steady and spend extra practice time on ${weakestSubject}.`;
+  }
+
+  return {
+    summary: data?.predictionSummary || summary,
+    reason: data?.predictionReason || reason,
+    nextAction: data?.predictionNextAction || nextAction,
+  };
+}
+
 function LoadingDashboard() {
   return (
     <div className="space-y-6">
@@ -148,6 +206,11 @@ export default function Dashboard() {
       { name: 'AI forecast', value: predicted },
     ];
   }, [analytics, data?.predictedScore]);
+
+  const predictionInsight = useMemo(
+    () => buildPredictionInsight(data, analytics, lecturePercent),
+    [data, analytics, lecturePercent],
+  );
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -250,8 +313,18 @@ export default function Dashboard() {
               </div>
               <h2 className="text-xl font-semibold tracking-tight text-slate-950 dark:text-white">AI prediction summary</h2>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-400">
-                Prediction confidence is driven by attendance, recent score movement, consistency, study effort, assignment completion, and engagement signals.
+                {predictionInsight.summary}
               </p>
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                <div className="rounded-2xl bg-white/70 p-3 text-sm leading-6 text-slate-600 dark:bg-slate-950/60 dark:text-slate-300">
+                  <span className="font-semibold text-slate-900 dark:text-white">Reason: </span>
+                  {predictionInsight.reason}
+                </div>
+                <div className="rounded-2xl bg-white/70 p-3 text-sm leading-6 text-slate-600 dark:bg-slate-950/60 dark:text-slate-300">
+                  <span className="font-semibold text-slate-900 dark:text-white">Next action: </span>
+                  {predictionInsight.nextAction}
+                </div>
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-3 sm:min-w-72">
               <div className="rounded-2xl bg-white/70 p-4 dark:bg-slate-950/60">
@@ -441,3 +514,4 @@ export default function Dashboard() {
     </div>
   );
 }
+  
