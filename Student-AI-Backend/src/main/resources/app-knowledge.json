@@ -1,0 +1,52 @@
+[
+  {
+    "id": "nav-teacher-students",
+    "topic": "Students list page",
+    "content": "The Students page is the main teacher dashboard. Navigate to it via the sidebar link 'Students' (Users icon). Here you can see all enrolled students, their risk levels, and performance scores. You can search by name, filter by risk level (HIGH/MEDIUM/LOW), and click any student row to see their detailed profile."
+  },
+  {
+    "id": "nav-predictions",
+    "topic": "AI Predictions page",
+    "content": "The AI Predictions page is accessible from the sidebar under 'AI Predictions' (Brain icon). It is only visible to teachers. This page runs batch ML predictions on all students simultaneously showing predicted score, pass probability, risk level, and top risk factors. Click 'Run Predictions' button to trigger the ML service."
+  },
+  {
+    "id": "nav-add-student",
+    "topic": "Adding a new student",
+    "content": "To add a new student, click 'Add Student' in the sidebar (UserPlus icon) or click the '+ Add Student' button on the Students page. Fill in name, email, and password. The student will receive STUDENT role and can log in to see their own dashboard."
+  },
+  {
+    "id": "nav-student-detail",
+    "topic": "Student detail page",
+    "content": "Click any student row on the Students page to open their detail view at /students/:id. Here you see attendance percentage, assignment completion rate, marks by subject, study session hours, engagement logs, and AI-generated recommendations. The AI recommendations section shows personalized advice based on performance patterns."
+  },
+  {
+    "id": "nav-dashboard",
+    "topic": "Student dashboard",
+    "content": "Students see their own dashboard at /dashboard/:id after login. It shows performance summary cards (avg score, attendance, study hours), score trend chart, subject-wise marks, and recommendations. Teachers can also view any student's dashboard by navigating to /dashboard/:studentId."
+  },
+  {
+    "id": "feature-risk",
+    "topic": "Risk levels",
+    "content": "Risk levels are computed by the ML service: HIGH (student likely to fail, needs immediate attention), MEDIUM (at risk, monitor closely), LOW (performing well). Risk is shown as colored badges throughout the app. The ML model uses attendance, scores, assignment completion, and study hours to compute risk."
+  },
+  {
+    "id": "feature-recommendations",
+    "topic": "AI Recommendations",
+    "content": "AI recommendations are generated automatically when student data is saved. They appear on the Student Detail page and Dashboard under the 'Recommendations' section. Each recommendation has a type (STUDY_HABIT, ATTENDANCE, ASSIGNMENT, ENGAGEMENT) and a priority (HIGH/MEDIUM/LOW)."
+  },
+  {
+    "id": "feature-login",
+    "topic": "Login and roles",
+    "content": "There are two roles: TEACHER and STUDENT. Login at /login with email and password. Teachers see the full sidebar with Students, AI Predictions, and Add Student. Students only see 'My Dashboard'. Registration is at /register — by default creates a STUDENT account."
+  },
+  {
+    "id": "feature-ml",
+    "topic": "ML / prediction model",
+    "content": "The ML service runs as a separate Python FastAPI service. It uses Random Forest, Logistic Regression, and Linear Regression models trained on synthetic student data. Models are pre-trained and saved as .pkl files. The Spring Boot backend calls the ML service at /predict or /predict/batch."
+  },
+  {
+    "id": "feature-analytics",
+    "topic": "Analytics and performance summary",
+    "content": "Performance analytics are computed server-side by AnalyticsService in Spring Boot. The summary includes avgScore, recentAvgScore, scoreTrend, attendancePercentage, assignmentCompletionRate, weeklyStudyHours, and studyConsistencyScore. These are recalculated every time student data changes."
+  }
+]
