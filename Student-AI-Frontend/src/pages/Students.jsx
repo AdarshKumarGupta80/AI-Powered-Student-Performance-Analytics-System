@@ -1,10 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ArrowUpRight, ChevronLeft, ChevronRight, Filter, Search, SlidersHorizontal, Users } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { ArrowUpRight, ChevronLeft, ChevronRight, Filter, Plus, Search, SlidersHorizontal, Users } from 'lucide-react';
 import { studentAPI } from '../api/api';
 import { Badge, Button, Card, EmptyState, MetricCard, PageHeader } from '../components/ui/DashboardPrimitives';
 
 const PAGE_SIZE = 8;
+const EMPTY_STUDENT = {
+  name: '',
+  email: '',
+  enrollmentNumber: '',
+  department: '',
+  semester: '',
+  dateOfBirth: '',
+};
 
 function initials(name = '') {
   return name
@@ -33,7 +41,12 @@ export default function Students() {
   const [department, setDepartment] = useState('ALL');
   const [sort, setSort] = useState('name');
   const [page, setPage] = useState(1);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newStudent, setNewStudent] = useState(EMPTY_STUDENT);
+  const [savingStudent, setSavingStudent] = useState(false);
+  const [formMessage, setFormMessage] = useState('');
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   useEffect(() => {
     studentAPI.getAll()
@@ -68,6 +81,50 @@ export default function Students() {
     setPage(1);
   }, [search, department, sort]);
 
+  useEffect(() => {
+    setShowAddForm(searchParams.get('add') === '1');
+  }, [searchParams]);
+
+  const openAddForm = () => {
+    setSearchParams({ add: '1' });
+  };
+
+  const closeAddForm = () => {
+    setShowAddForm(false);
+    setSearchParams({});
+  };
+
+  const updateNewStudent = (field, value) => {
+    setNewStudent((previous) => ({ ...previous, [field]: value }));
+  };
+
+  const handleCreateStudent = async (event) => {
+    event.preventDefault();
+    setFormMessage('');
+
+    if (!newStudent.name || !newStudent.email || !newStudent.enrollmentNumber || !newStudent.department || !newStudent.semester) {
+      setFormMessage('Please fill all required student details.');
+      return;
+    }
+
+    setSavingStudent(true);
+    try {
+      const response = await studentAPI.create({
+        ...newStudent,
+        semester: Number(newStudent.semester),
+        dateOfBirth: newStudent.dateOfBirth || null,
+      });
+      setStudents((previous) => [response.data, ...previous]);
+      setNewStudent(EMPTY_STUDENT);
+      closeAddForm();
+      setFormMessage('');
+    } catch (error) {
+      setFormMessage(error.response?.data?.message || error.response?.data || 'Could not add student. Please try again.');
+    } finally {
+      setSavingStudent(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="space-y-5">
@@ -81,6 +138,80 @@ export default function Students() {
   }
 
   const semesterCount = new Set(students.map((student) => student.semester).filter(Boolean)).size;
+
+  if (showAddForm) {
+    return (
+      <div>
+        <PageHeader
+          eyebrow="Student operations"
+          title="Add Student"
+          description="Create a student profile with the required academic identity details."
+          actions={
+            <Button variant="secondary" onClick={closeAddForm}>
+              <Users className="h-4 w-4" />
+              View students
+            </Button>
+          }
+        />
+
+        <Card className="p-4 sm:p-5">
+          <form onSubmit={handleCreateStudent} className="grid gap-4 lg:grid-cols-6">
+            <div className="lg:col-span-2">
+              <label htmlFor="student-name">Full name *</label>
+              <input id="student-name" value={newStudent.name} onChange={(event) => updateNewStudent('name', event.target.value)} placeholder="Rahul Sharma" />
+            </div>
+            <div className="lg:col-span-2">
+              <label htmlFor="student-email">Email *</label>
+              <input id="student-email" type="email" value={newStudent.email} onChange={(event) => updateNewStudent('email', event.target.value)} placeholder="rahul@student.com" />
+            </div>
+            <div className="lg:col-span-2">
+              <label htmlFor="student-enrollment">Enrollment no. *</label>
+              <input id="student-enrollment" value={newStudent.enrollmentNumber} onChange={(event) => updateNewStudent('enrollmentNumber', event.target.value)} placeholder="CSE2026001" />
+            </div>
+            <div className="lg:col-span-2">
+              <label htmlFor="student-department">Department *</label>
+              <select id="student-department" value={newStudent.department} onChange={(event) => updateNewStudent('department', event.target.value)}>
+                <option value="">Select department</option>
+                <option value="CSE">CSE</option>
+                <option value="IT">IT</option>
+                <option value="ECE">ECE</option>
+                <option value="ME">ME</option>
+                <option value="CIVIL">CIVIL</option>
+              </select>
+            </div>
+            <div className="lg:col-span-2">
+              <label htmlFor="student-semester">Semester *</label>
+              <select id="student-semester" value={newStudent.semester} onChange={(event) => updateNewStudent('semester', event.target.value)}>
+                <option value="">Select semester</option>
+                {[1, 2, 3, 4, 5, 6, 7, 8].map((semester) => <option key={semester} value={semester}>Semester {semester}</option>)}
+              </select>
+            </div>
+            <div className="lg:col-span-2">
+              <label htmlFor="student-dob">Date of birth</label>
+              <input id="student-dob" type="date" value={newStudent.dateOfBirth} onChange={(event) => updateNewStudent('dateOfBirth', event.target.value)} />
+            </div>
+
+            <div className="flex flex-col gap-3 lg:col-span-6 sm:flex-row sm:items-center">
+              <Button type="submit" disabled={savingStudent}>
+                {savingStudent ? 'Saving...' : 'Save student'}
+              </Button>
+              <Button type="button" variant="secondary" onClick={() => {
+                setNewStudent(EMPTY_STUDENT);
+                setFormMessage('');
+              }}>
+                Clear
+              </Button>
+              {formMessage && (
+                <p className={`text-sm font-medium ${formMessage.includes('Please') || formMessage.includes('Could not') ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                  {formMessage}
+                </p>
+              )}
+            </div>
+          </form>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div>
