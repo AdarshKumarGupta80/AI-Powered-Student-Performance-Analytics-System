@@ -57,4 +57,18 @@ export const recommendationAPI = {
   markAllRead: (id) => api.put(`/api/recommendations/${id}/mark-read`),
 };
 
+export const reportAPI = {
+  generate: (studentId) => api.post(`/api/reports/generate/${studentId}`),
+  getHistory: (studentId) => api.get(`/api/reports/student/${studentId}`),
+  downloadPdf: (reportId) =>
+    api.get(`/api/reports/${reportId}/pdf`, { responseType: 'blob' }),
+  sendEmail: (studentId) => api.post(`/api/reports/email/${studentId}`),
+};
+
+export const aiFeedbackAPI = {
+  generate: (studentId) => api.post(`/api/ai-feedback/generate/${studentId}`),
+  getHistory: (studentId) => api.get(`/api/ai-feedback/student/${studentId}`),
+  getDashboard: () => api.get('/api/ai-feedback/dashboard'),
+};
+
 export default api;
