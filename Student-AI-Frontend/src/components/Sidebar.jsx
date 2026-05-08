@@ -4,8 +4,6 @@ import {
   GraduationCap,
   LayoutDashboard,
   LogOut,
-  MessageSquare,
-  FileBarChart2,
   Users,
   UserPlus,
   X,
@@ -15,23 +13,15 @@ import { cn } from '../lib/cn';
 import { Button } from './ui/DashboardPrimitives';
 
 const teacherNav = [
-  { to: '/students',    label: 'Students',      icon: Users },
+  { to: '/students', label: 'Students', icon: Users },
   { to: '/predictions', label: 'AI Predictions', icon: Brain },
   { to: '/students?add=1', label: 'Add Student', icon: UserPlus },
 ];
 
-function buildStudentNav(studentId) {
-  return [
-    { to: `/dashboard/${studentId}`, label: 'My Dashboard',  icon: LayoutDashboard },
-    { to: '/reports',                label: 'Reports',        icon: FileBarChart2 },
-    { to: '/ai-feedback',            label: 'AI Feedback',    icon: MessageSquare },
-  ];
-}
-
 function initials(name = '') {
   return name
     .split(' ')
-    .map(p => p[0])
+    .map((part) => part[0])
     .join('')
     .toUpperCase()
     .slice(0, 2) || 'AI';
@@ -39,12 +29,14 @@ function initials(name = '') {
 
 export default function Sidebar({ open = false, onClose = () => {} }) {
   const { user, isTeacher, studentId, logout, ready } = useAuth();
-  const navigate  = useNavigate();
-  const location  = useLocation();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   if (!ready || !user) return null;
 
-  const primaryNav = isTeacher ? teacherNav : buildStudentNav(studentId);
+  const primaryNav = isTeacher
+    ? teacherNav
+    : [{ to: `/dashboard/${studentId}`, label: 'My Dashboard', icon: LayoutDashboard }];
 
   const handleLogout = () => {
     logout();
@@ -70,38 +62,34 @@ export default function Sidebar({ open = false, onClose = () => {} }) {
 
       <nav className="app-scrollbar flex-1 space-y-6 overflow-y-auto px-3 py-5">
         <div>
-          <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
-            Workspace
-          </p>
+          <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Workspace</p>
           <div className="space-y-1">
             {primaryNav.map(({ to, label, icon: Icon }) => {
               const [path, query = ''] = to.split('?');
               const isAddStudent = query.includes('add=1');
-              const isActive =
-                location.pathname === path &&
-                (isAddStudent
-                  ? location.search.includes('add=1')
-                  : !location.search.includes('add=1'));
+              const isActive = location.pathname === path
+                && (isAddStudent ? location.search.includes('add=1') : !location.search.includes('add=1'));
 
               return (
-                <Link
-                  key={to}
-                  to={to}
-                  onClick={onClose}
-                  className={cn(
-                    'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition',
-                    isActive
-                      ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300'
-                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-400 dark:hover:bg-slate-900 dark:hover:text-white',
-                  )}
-                >
-                  <Icon className="h-4 w-4" aria-hidden="true" />
-                  {label}
-                </Link>
+              <Link
+                key={to}
+                to={to}
+                onClick={onClose}
+                className={cn(
+                  'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition',
+                  isActive
+                    ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300'
+                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-400 dark:hover:bg-slate-900 dark:hover:text-white',
+                )}
+              >
+                <Icon className="h-4 w-4" aria-hidden="true" />
+                {label}
+              </Link>
               );
             })}
           </div>
         </div>
+
       </nav>
 
       <div className="border-t border-slate-200 p-4 dark:border-slate-800">

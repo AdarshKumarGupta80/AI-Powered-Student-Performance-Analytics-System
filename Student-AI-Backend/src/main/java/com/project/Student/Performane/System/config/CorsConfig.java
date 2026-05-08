@@ -19,6 +19,7 @@ public class CorsConfig {
         config.setAllowedOrigins(List.of("https://student-ai-frontend-production.up.railway.app"));
         config.addAllowedHeader("*");
         config.addAllowedMethod("*");
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
         return new CorsFilter(source);
