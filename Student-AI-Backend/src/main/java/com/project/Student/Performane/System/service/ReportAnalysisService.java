@@ -51,8 +51,6 @@ public class ReportAnalysisService {
                 .avgScoreSnapshot(summary.getAvgScore())
                 .attendanceSnapshot(summary.getAttendancePercentage())
                 .riskLevelSnapshot(summary.getRiskLevel())
-                .weekStart(LocalDate.now().with(java.time.DayOfWeek.MONDAY))
-                .emailSent(false)
                 .build();
 
         return reportRepository.save(report);

@@ -2,7 +2,6 @@ package com.project.Student.Performane.System.controller;
 
 import com.project.Student.Performane.System.Entity.WeeklyReport;
 import com.project.Student.Performane.System.service.ReportAnalysisService;
-import com.project.Student.Performane.System.service.WeeklyReportSchedulerService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
@@ -15,8 +14,6 @@ import java.util.List;
 public class ReportController {
 
     private final ReportAnalysisService     reportAnalysisService;
-    private final WeeklyReportSchedulerService schedulerService;
-
     @PostMapping("/generate/{studentId}")
     public ResponseEntity<WeeklyReport> generate(@PathVariable Long studentId) throws Exception {
         return ResponseEntity.ok(reportAnalysisService.generateReport(studentId));
@@ -37,9 +34,4 @@ public class ReportController {
         return new ResponseEntity<>(pdf, headers, HttpStatus.OK);
     }
 
-    @PostMapping("/email/{studentId}")
-    public ResponseEntity<String> sendEmail(@PathVariable Long studentId) throws Exception {
-        schedulerService.triggerForStudent(studentId);
-        return ResponseEntity.ok("Email sent successfully");
-    }
 }

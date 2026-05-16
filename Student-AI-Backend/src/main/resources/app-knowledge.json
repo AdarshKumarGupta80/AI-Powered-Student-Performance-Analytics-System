@@ -48,5 +48,45 @@
     "id": "feature-analytics",
     "topic": "Analytics and performance summary",
     "content": "Performance analytics are computed server-side by AnalyticsService in Spring Boot. The summary includes avgScore, recentAvgScore, scoreTrend, attendancePercentage, assignmentCompletionRate, weeklyStudyHours, and studyConsistencyScore. These are recalculated every time student data changes."
+  },
+  {
+    "id": "ai-study-plan-generator",
+    "topic": "Generate personalized study plan",
+    "content": "When a student requests a study plan, generate it based on their performance data: attendance, subject-wise marks, weekly study hours, and weak subjects. Prioritize low-score subjects and high-risk areas. A good study plan should include daily schedule, revision cycles (spaced repetition), focus hours, break time, and weekly mock tests. If the student is HIGH risk, increase revision time and reduce new topic load. If LOW risk, focus on optimization and advanced practice."
+  },
+  {
+    "id": "ai-doubt-resolution",
+    "topic": "Answer academic doubts",
+    "content": "When a student asks a doubt, respond in 3 layers: 1) Simple explanation, 2) Step-by-step breakdown, 3) Real-world example. If the student has LOW performance in that subject, include extra foundational explanation. If MEDIUM risk, balance concept + practice. If HIGH risk, simplify heavily and suggest revision topics first before advanced concepts."
+  },
+  {
+    "id": "ai-performance-analysis",
+    "topic": "Student performance interpretation",
+    "content": "Analyze student performance using trends: score trend, attendance, assignment completion, and study consistency. If score trend is negative, prioritize intervention recommendations. If attendance is below 60%, flag as critical risk factor. If assignment completion is low, suggest structured deadlines and accountability strategies. Always explain WHY the student is underperforming, not just the result."
+  },
+  {
+    "id": "ai-risk-based-coaching",
+    "topic": "Risk-based guidance system",
+    "content": "For HIGH risk students: focus on foundational topics, increase revision frequency, reduce cognitive load, and provide daily micro-goals. For MEDIUM risk: focus on consistency, targeted improvement areas, and weekly progress tracking. For LOW risk: focus on optimization, advanced problem solving, and competitive exam preparation strategies."
+  },
+  {
+    "id": "ai-study-plan-format",
+    "topic": "Study plan structure format",
+    "content": "A generated study plan must include: 1) Daily schedule (time blocks), 2) Subject prioritization based on weak areas, 3) Revision cycle (daily + weekly), 4) Practice problems per day, 5) Break strategy, 6) Weekly assessment test, 7) Motivation or productivity tip. Plans must adapt to available weekly study hours."
+  },
+  {
+    "id": "ai-subject-help-dsa",
+    "topic": "DSA subject guidance",
+    "content": "For DSA-related doubts or low scores, identify weak topics like arrays, recursion, linked lists, or sorting. Suggest structured progression: basics → patterns → problems → timed practice. If student is low-performing, reduce complexity and focus on conceptual clarity before problem-solving."
+  },
+  {
+    "id": "ai-motivation-layer",
+    "topic": "Student motivation system",
+    "content": "If a student is LOW or HIGH risk, include motivational reinforcement: acknowledge effort gaps without judgment, suggest small achievable goals, and show improvement path. Avoid generic motivational quotes. Base encouragement on actual data improvements like attendance increase or score trend recovery."
+  },
+  {
+    "id": "ai-exam-prep-mode",
+    "topic": "Exam preparation mode",
+    "content": "When exam mode is triggered, compress study plan into revision-heavy schedule. Focus 70% on revision, 30% on practice tests. Highlight weak subjects first. Include mock tests every 2-3 days. Prioritize high-weightage topics based on performance history."
   }
 ]

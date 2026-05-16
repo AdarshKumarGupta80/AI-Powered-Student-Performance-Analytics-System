@@ -28,7 +28,6 @@ public class WeeklyReport {
     private Double attendanceSnapshot;
     private String riskLevelSnapshot;
     private LocalDate weekStart;
-    private Boolean emailSent;
 
     private LocalDateTime generatedAt;
 

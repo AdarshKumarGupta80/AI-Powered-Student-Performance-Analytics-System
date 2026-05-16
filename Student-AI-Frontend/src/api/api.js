@@ -62,7 +62,6 @@ export const reportAPI = {
   getHistory: (studentId) => api.get(`/api/reports/student/${studentId}`),
   downloadPdf: (reportId) =>
     api.get(`/api/reports/${reportId}/pdf`, { responseType: 'blob' }),
-  sendEmail: (studentId) => api.post(`/api/reports/email/${studentId}`),
 };
 
 export const aiFeedbackAPI = {

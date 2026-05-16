@@ -74,7 +74,6 @@ public class SentimentAnalysisService {
             JsonNode root = mapper.readTree(raw);
             String content = root.get("choices").get(0).get("message").get("content").asText();
 
-            // Strip markdown fences if any
             String json = content.replaceAll("```json|```", "").trim();
             JsonNode result = mapper.readTree(json);
 
