@@ -11,7 +11,6 @@ services:
       - key: PYTHON_VERSION
         value: "3.11.0"
 
-  - type: web
     name: student-ai-backend
     runtime: docker
     rootDir: Student-AI-Backend
