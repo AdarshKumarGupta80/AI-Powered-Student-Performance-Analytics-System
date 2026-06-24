@@ -1,17 +1,28 @@
-import os, joblib, numpy as np, pandas as pd
+from __future__ import annotations
+
+import os
+import joblib
+import numpy as np
+import pandas as pd
+from typing import TYPE_CHECKING
+
 from sklearn.linear_model    import LinearRegression, LogisticRegression
 from sklearn.ensemble        import RandomForestClassifier
 from sklearn.preprocessing   import StandardScaler, LabelEncoder
 from sklearn.model_selection import train_test_split
-from sklearn.metrics         import mean_absolute_error, r2_score, accuracy_score, classification_report
-from data_generator          import generate_training_data
+from sklearn.metrics         import (mean_absolute_error, r2_score,
+                                     accuracy_score, classification_report)
+from data_generator import generate_training_data
 
+# ---------------------------------------------------------------------------
+# Optional PyTorch import
+# ---------------------------------------------------------------------------
 try:
     import torch
     import torch.nn as nn
     import torch.optim as optim
     from torch.utils.data import DataLoader, TensorDataset
-    TORCH_AVAILABLE = True
+    TORCH_AVAILABLE: bool = True
 except ImportError:
     TORCH_AVAILABLE = False
     print("PyTorch not installed — DL model disabled")
@@ -23,61 +34,70 @@ FEATURE_COLUMNS = [
     "weekly_study_hours", "study_consistency_score", "consistency_index",
 ]
 
-class StudentPerformanceNet(nn.Module):
-    """
-    3-layer feed-forward network with batch norm + dropout.
-    Predicts final score (regression head) and risk category (classification head).
-    """
-    def __init__(self, input_dim=10, hidden_dim=128, num_risk_classes=3):
-        super().__init__()
-        self.shared = nn.Sequential(
-            nn.Linear(input_dim, hidden_dim),
-            nn.BatchNorm1d(hidden_dim),
-            nn.ReLU(),
-            nn.Dropout(0.3),
-            nn.Linear(hidden_dim, 64),
-            nn.BatchNorm1d(64),
-            nn.ReLU(),
-            nn.Dropout(0.2),
-        )
-        self.score_head = nn.Sequential(
-            nn.Linear(64, 32),
-            nn.ReLU(),
-            nn.Linear(32, 1),
-        )
-        self.risk_head = nn.Sequential(
-            nn.Linear(64, 32),
-            nn.ReLU(),
-            nn.Linear(32, num_risk_classes),
-        )
+# ---------------------------------------------------------------------------
+# Neural network — defined only when PyTorch is present
+# ---------------------------------------------------------------------------
+if TORCH_AVAILABLE:
+    class StudentPerformanceNet(nn.Module):  # type: ignore[misc]
+        """
+        3-layer feed-forward network with batch norm + dropout.
+        Predicts final score (regression head) and risk category (classification head).
+        """
+        def __init__(self, input_dim: int = 10, hidden_dim: int = 128,
+                     num_risk_classes: int = 3) -> None:
+            super().__init__()
+            self.shared = nn.Sequential(
+                nn.Linear(input_dim, hidden_dim),
+                nn.BatchNorm1d(hidden_dim),
+                nn.ReLU(),
+                nn.Dropout(0.3),
+                nn.Linear(hidden_dim, 64),
+                nn.BatchNorm1d(64),
+                nn.ReLU(),
+                nn.Dropout(0.2),
+            )
+            self.score_head = nn.Sequential(
+                nn.Linear(64, 32),
+                nn.ReLU(),
+                nn.Linear(32, 1),
+            )
+            self.risk_head = nn.Sequential(
+                nn.Linear(64, 32),
+                nn.ReLU(),
+                nn.Linear(32, num_risk_classes),
+            )
 
-    def forward(self, x):
-        shared_out  = self.shared(x)
-        score_out   = self.score_head(shared_out).squeeze(-1)
-        risk_logits = self.risk_head(shared_out)
-        return score_out, risk_logits
+        def forward(self, x):  # type: ignore[override]
+            shared_out  = self.shared(x)
+            score_out   = self.score_head(shared_out).squeeze(-1)
+            risk_logits = self.risk_head(shared_out)
+            return score_out, risk_logits
 
 
+# ---------------------------------------------------------------------------
+# Main model class
+# ---------------------------------------------------------------------------
 class StudentMLModel:
-    def __init__(self):
-        self.linear_reg    = None
-        self.random_forest = None
-        self.logistic_reg  = None
+    def __init__(self) -> None:
+        self.linear_reg:    LinearRegression | None    = None
+        self.random_forest: RandomForestClassifier | None = None
+        self.logistic_reg:  LogisticRegression | None  = None
         self.scaler        = StandardScaler()
         self.risk_encoder  = LabelEncoder()
-        self.dl_model      = None
+        self.dl_model      = None   # type: ignore[var-annotated]
         self.dl_scaler     = StandardScaler()
-        self.is_trained    = False
-        self.metrics       = {}
+        self.is_trained:   bool = False
+        self.metrics:      dict = {}
         os.makedirs(MODELS_DIR, exist_ok=True)
 
+    # ------------------------------------------------------------------
     def train(self, n_samples: int = 5000) -> dict:
         print(f"Generating {n_samples} training samples...")
         df = generate_training_data(n_samples)
 
         X        = df[FEATURE_COLUMNS].values
         y_score  = df["final_score"].values
-        y_risk   = self.risk_encoder.fit_transform(df["risk_level"].values)
+        y_risk   = self.risk_encoder.fit_transform(df["risk_level"].values.astype(str))
         y_passed = df["passed"].values
 
         X_scaled = self.scaler.fit_transform(X)
@@ -105,16 +125,17 @@ class StudentMLModel:
         )
         self.logistic_reg.fit(X_train, yp_train)
 
-        dl_metrics = {}
+        dl_metrics: dict = {}
         if TORCH_AVAILABLE:
             print("Training neural network...")
+            split = int(len(X) * 0.8)
             X_dl    = self.dl_scaler.fit_transform(X)
-            X_tr_t  = torch.FloatTensor(X_dl[:int(len(X)*0.8)])
-            X_te_t  = torch.FloatTensor(X_dl[int(len(X)*0.8):])
-            ys_tr_t = torch.FloatTensor(y_score[:int(len(X)*0.8)])
-            ys_te_t = torch.FloatTensor(y_score[int(len(X)*0.8):])
-            yr_tr_t = torch.LongTensor(y_risk[:int(len(X)*0.8)])
-            yr_te_t = torch.LongTensor(y_risk[int(len(X)*0.8):])
+            X_tr_t  = torch.FloatTensor(X_dl[:split])
+            X_te_t  = torch.FloatTensor(X_dl[split:])
+            ys_tr_t = torch.FloatTensor(y_score[:split])
+            ys_te_t = torch.FloatTensor(y_score[split:])
+            yr_tr_t = torch.LongTensor(y_risk[:split])
+            yr_te_t = torch.LongTensor(y_risk[split:])
 
             dataset = TensorDataset(X_tr_t, ys_tr_t, yr_tr_t)
             loader  = DataLoader(dataset, batch_size=64, shuffle=True)
@@ -131,7 +152,7 @@ class StudentMLModel:
 
             self.dl_model.train()
             for epoch in range(60):
-                epoch_loss = 0
+                epoch_loss = 0.0
                 for xb, ysb, yrb in loader:
                     optimizer.zero_grad()
                     s_pred, r_logits = self.dl_model(xb)
@@ -146,22 +167,24 @@ class StudentMLModel:
             self.dl_model.eval()
             with torch.no_grad():
                 s_pred_te, r_logits_te = self.dl_model(X_te_t)
-                dl_mae = float(torch.mean(torch.abs(s_pred_te - ys_te_t)))
-                r_pred_te = torch.argmax(r_logits_te, dim=1)
+                dl_mae     = float(torch.mean(torch.abs(s_pred_te - ys_te_t)))
+                r_pred_te  = torch.argmax(r_logits_te, dim=1)
                 dl_risk_acc = float((r_pred_te == yr_te_t).float().mean())
 
             dl_metrics = {
-                "score_mae":      round(dl_mae, 3),
-                "risk_accuracy":  round(dl_risk_acc, 3),
-                "architecture":   "3-layer FFN + BatchNorm + Dropout",
-                "epochs":         60,
-                "hidden_dim":     128,
+                "score_mae":     round(dl_mae, 3),
+                "risk_accuracy": round(dl_risk_acc, 3),
+                "architecture":  "3-layer FFN + BatchNorm + Dropout",
+                "epochs":        60,
+                "hidden_dim":    128,
             }
             print(f"  DL Score MAE : {dl_mae:.3f}")
             print(f"  DL Risk Acc  : {dl_risk_acc:.3f}")
             torch.save(self.dl_model.state_dict(), f"{MODELS_DIR}/dl_model.pt")
             joblib.dump(self.dl_scaler, f"{MODELS_DIR}/dl_scaler.pkl")
 
+        assert self.random_forest is not None
+        assert self.logistic_reg  is not None
         risk_pred = self.random_forest.predict(X_test)
         pass_pred = self.logistic_reg.predict(X_test)
 
@@ -187,9 +210,14 @@ class StudentMLModel:
         print("Training complete!")
         return self.metrics
 
+    # ------------------------------------------------------------------
     def predict(self, features: dict) -> dict:
         if not self.is_trained:
             raise RuntimeError("Model not trained. Call /train first.")
+        if (self.linear_reg is None
+                or self.random_forest is None
+                or self.logistic_reg is None):
+            raise RuntimeError("Models not loaded correctly.")
 
         fv = np.array([[
             features.get("avgScore",                 0.0),
@@ -211,7 +239,7 @@ class StudentMLModel:
         risk_level = self.risk_encoder.inverse_transform([risk_enc])[0]
         pass_proba = float(self.logistic_reg.predict_proba(X_scaled)[0][1])
 
-        dl_score = ml_score
+        dl_score     = ml_score
         dl_available = False
         if TORCH_AVAILABLE and self.dl_model is not None:
             try:
@@ -219,27 +247,27 @@ class StudentMLModel:
                 x_t  = torch.FloatTensor(X_dl)
                 self.dl_model.eval()
                 with torch.no_grad():
-                    s_pred, r_logits = self.dl_model(x_t)
-                dl_score = float(np.clip(s_pred.item(), 0, 100))
+                    s_pred, _ = self.dl_model(x_t)
+                dl_score     = float(np.clip(s_pred.item(), 0, 100))
                 dl_available = True
             except Exception as e:
                 print(f"DL prediction error: {e}")
 
         final_score = (0.6 * ml_score + 0.4 * dl_score) if dl_available else ml_score
 
-        importances   = dict(zip(FEATURE_COLUMNS,
+        importances = dict(zip(FEATURE_COLUMNS,
             [round(float(v), 4) for v in self.random_forest.feature_importances_]))
-        top_factors   = sorted(importances.items(), key=lambda x: x[1], reverse=True)[:3]
+        top_factors = sorted(importances.items(), key=lambda x: x[1], reverse=True)[:3]
 
         return {
-            "predictedScore":   round(final_score, 2),
-            "mlScore":          round(ml_score, 2),
-            "dlScore":          round(dl_score, 2) if dl_available else None,
-            "dlAvailable":      dl_available,
-            "riskLevel":        risk_level,
-            "passProbability":  round(pass_proba * 100, 2),
-            "willPass":         bool(pass_proba >= 0.5),
-            "topRiskFactors":   [f[0] for f in top_factors],
+            "predictedScore":  round(final_score, 2),
+            "mlScore":         round(ml_score, 2),
+            "dlScore":         round(dl_score, 2) if dl_available else None,
+            "dlAvailable":     dl_available,
+            "riskLevel":       risk_level,
+            "passProbability": round(pass_proba * 100, 2),
+            "willPass":        bool(pass_proba >= 0.5),
+            "topRiskFactors":  [f[0] for f in top_factors],
             "confidence": {
                 "scoreModel":    self.metrics.get("score_prediction", {}).get("r2", 0),
                 "riskModel":     self.metrics.get("risk_classification", {}).get("accuracy", 0),
@@ -248,7 +276,8 @@ class StudentMLModel:
             }
         }
 
-    def _save_models(self):
+    # ------------------------------------------------------------------
+    def _save_models(self) -> None:
         joblib.dump(self.linear_reg,    f"{MODELS_DIR}/linear_regression.pkl")
         joblib.dump(self.random_forest, f"{MODELS_DIR}/random_forest.pkl")
         joblib.dump(self.logistic_reg,  f"{MODELS_DIR}/logistic_regression.pkl")
@@ -257,6 +286,7 @@ class StudentMLModel:
         joblib.dump(self.metrics,       f"{MODELS_DIR}/metrics.pkl")
         print("Models saved.")
 
+    # ------------------------------------------------------------------
     def load_models(self) -> bool:
         try:
             self.linear_reg    = joblib.load(f"{MODELS_DIR}/linear_regression.pkl")
@@ -266,9 +296,9 @@ class StudentMLModel:
             self.risk_encoder  = joblib.load(f"{MODELS_DIR}/risk_encoder.pkl")
             self.metrics       = joblib.load(f"{MODELS_DIR}/metrics.pkl")
             self.is_trained    = True
-            # Try loading DL model
+
             if TORCH_AVAILABLE:
-                dl_path = f"{MODELS_DIR}/dl_model.pt"
+                dl_path    = f"{MODELS_DIR}/dl_model.pt"
                 dl_sc_path = f"{MODELS_DIR}/dl_scaler.pkl"
                 if os.path.exists(dl_path) and os.path.exists(dl_sc_path):
                     self.dl_scaler = joblib.load(dl_sc_path)
@@ -276,9 +306,12 @@ class StudentMLModel:
                         input_dim=len(FEATURE_COLUMNS), hidden_dim=128,
                         num_risk_classes=len(self.risk_encoder.classes_)
                     )
-                    self.dl_model.load_state_dict(torch.load(dl_path, weights_only=True))
+                    self.dl_model.load_state_dict(
+                        torch.load(dl_path, weights_only=True)
+                    )
                     self.dl_model.eval()
                     print("DL model loaded from disk")
+
             print("All models loaded.")
             return True
         except FileNotFoundError:
