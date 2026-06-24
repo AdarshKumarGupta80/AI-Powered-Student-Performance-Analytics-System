@@ -44,7 +44,7 @@ services:
           name: student-ai-db
           property: password
       - key: JWT_SECRET_KEY
-        generateValue: true
+        generateValue: false
       - key: JWT_EXPIRATION
         value: "3600000"
       - key: GROK_API_KEY
@@ -54,9 +54,7 @@ services:
           name: student-ml-service
           type: web
           property: host
-      - key: FRONTEND_URL
-        sync: false          # Set manually after frontend deploys
-
+      
   # ── 3. Frontend (React → Nginx — Docker) ──────────────────
   - type: web
     name: student-ai-frontend
