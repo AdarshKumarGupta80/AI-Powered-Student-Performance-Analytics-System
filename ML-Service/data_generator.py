@@ -152,10 +152,10 @@ def generate_training_data(n_samples: int = 2000, seed: int = 42) -> pd.DataFram
             max(0, 100 - consistency_index) * 0.15
         )
 
-        if risk_score >= 65:
+        if risk_score >= 50:
             risk_level = "HIGH"
 
-        elif risk_score >= 35:
+        elif risk_score >= 25:
             risk_level = "MEDIUM"
 
         else:
