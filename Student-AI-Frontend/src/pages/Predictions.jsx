@@ -72,7 +72,7 @@ export default function Predictions() {
   };
 
   const analysed = useMemo(() => students.filter((student) => predictions[student.id] && !predictions[student.id].error), [students, predictions]);
-  const highRisk = analysed.filter((student) => ['HIGH', 'MEDIUM'].includes(predictions[student.id]?.riskLevel));
+  const highRisk = analysed.filter((student) => predictions[student.id]?.willPass === false);
   const classAverage = analysed.length
     ? analysed.reduce((acc, student) => acc + (Number(predictions[student.id]?.predictedScore) || 0), 0) / analysed.length
     : 0;
@@ -105,7 +105,7 @@ export default function Predictions() {
 
       <div className="grid gap-4 md:grid-cols-3">
         <MetricCard label="Students analyzed" value={analysed.length} sub={`${students.length} total students`} icon={Users} tone="indigo" />
-        <MetricCard label="At-risk students" value={highRisk.length} sub="Medium &amp; high-risk forecast" icon={AlertTriangle} tone={highRisk.length ? 'red' : 'emerald'} />
+        <MetricCard label="At-risk students" value={highRisk.length} sub="High-risk forecast" icon={AlertTriangle} tone={highRisk.length ? 'red' : 'emerald'} />
         <MetricCard label="Class average" value={analysed.length ? `${classAverage.toFixed(1)}%` : '-'} sub="Predicted score" icon={Brain} tone="emerald" />
       </div>
 
