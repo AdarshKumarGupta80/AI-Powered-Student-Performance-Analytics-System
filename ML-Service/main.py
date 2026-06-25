@@ -142,6 +142,7 @@ def safe_features(features: dict) -> dict:
 
 
 @app.get("/")
+@app.head("/")
 def root():
     """Root endpoint — useful for Railway health checks"""
     return {
@@ -154,6 +155,7 @@ def root():
 
 
 @app.get("/health")
+@app.head("/health")
 def health():
     """
     Health check — always returns HTTP 200 immediately, even during cold-start training.
