@@ -1,4 +1,5 @@
 import os
+import threading
 from fastapi        import FastAPI, HTTPException
 from pydantic       import BaseModel, Field
 from contextlib     import asynccontextmanager
@@ -6,15 +7,29 @@ from typing         import Optional, List
 from ml_model       import ml_model
 from fastapi.middleware.cors import CORSMiddleware
 
+# Tracks whether startup training is complete
+_startup_done = False
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("Starting ML Service...")
-    loaded = ml_model.load_models()
-    if not loaded:
-        print(" No saved models found — training fresh models with 5000 samples...")
-        ml_model.train(n_samples=5000)
-    else:
-        print("Models loaded from disk successfully")
+    global _startup_done
+
+    def _load_or_train():
+        global _startup_done
+        print("Starting ML Service...")
+        loaded = ml_model.load_models()
+        if not loaded:
+            print(" No saved models found — training fresh models with 5000 samples...")
+            ml_model.train(n_samples=5000)
+        else:
+            print("Models loaded from disk successfully")
+        _startup_done = True
+
+    # Run training in background so the HTTP server starts immediately
+    # This lets /health return 200 during cold-start instead of timing out
+    thread = threading.Thread(target=_load_or_train, daemon=True)
+    thread.start()
+
     yield
     print(" ML Service shutting down")
 
@@ -141,14 +156,14 @@ def root():
 @app.get("/health")
 def health():
     """
-    Health check endpoint.
-    Railway and Spring Boot both call this to verify the service is alive.
+    Health check — always returns HTTP 200 immediately, even during cold-start training.
+    UptimeRobot / Render will never get a 503 from this endpoint.
     """
     return {
-        "status":    "ok",
-        "trained":   ml_model.is_trained,
-        "modelsDir": "models/",
-        "port":      int(os.environ.get("PORT", 8000)),
+        "status":  "ok",
+        "ready":   _startup_done,   # false while model is still training on cold start
+        "trained": ml_model.is_trained,
+        "port":    int(os.environ.get("PORT", 8000)),
     }
 
 
