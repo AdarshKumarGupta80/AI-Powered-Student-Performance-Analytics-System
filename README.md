@@ -1,4 +1,4 @@
-##Student AI Performance Analytics
+# Student AI Performance Analytics
 
 A web application that helps teachers analyze student performance using data analytics, Machine Learning, and AI.
 
@@ -88,7 +88,7 @@ Navigate to the ML service directory and start the Python service using the proj
 
 Before running the application, make sure PostgreSQL is running and the required database and environment variables are configured.
 
-#Demo Account
+# Demo Account
 
 Teacher
 
