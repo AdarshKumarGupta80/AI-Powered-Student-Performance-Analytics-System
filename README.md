@@ -92,7 +92,8 @@ Before running the application, make sure PostgreSQL is running and the required
 
 Teacher
 
-Email: rinky@gmail.com
+Email: rinky@gmail.com 
+
 Password: pass123
 
 Live Demo
