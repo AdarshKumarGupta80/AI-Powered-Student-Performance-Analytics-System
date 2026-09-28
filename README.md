@@ -1,4 +1,4 @@
-#Student AI Performance Analytics
+##Student AI Performance Analytics
 
 A web application that helps teachers analyze student performance using data analytics, Machine Learning, and AI.
 
