@@ -7,11 +7,13 @@ The application brings student marks, attendance, study hours, and assignment pe
 Features
 
 - Student performance analysis
-- Performance graphs and visualizations - ML-based performance prediction
+- Performance graphs and visualizations
+- ML-based performance prediction
 - AI-based recommendations
 - AI chatbot for performance-related queries
 - Student performance reports
 - Teacher dashboard
+- Optimized study schedule
 
 How It Works
 
@@ -110,7 +112,7 @@ Project Objective
 
 The objective of this project is to make student performance data easier for teachers to understand and use.
 
-It combines a web application with Machine Learning and AI so that teachers can not only view student data, but also get predictions, recommendations, and insights from it.
+It combines a web application with Machine Learning and AI so that teachers can view student data and get predictions, recommendations, and insights from it.
 
 Future Improvements
 
@@ -120,7 +122,7 @@ Future Improvements
 - Add more interactive charts
 - Improve student progress reports
 - Add more analytics features
-- Optimized Study Schedule 
+- Improve the optimized study schedule
 
 ---
 
