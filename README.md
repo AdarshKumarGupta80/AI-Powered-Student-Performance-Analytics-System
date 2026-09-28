@@ -1,10 +1,10 @@
-Student AI Performance Analytics
+#Student AI Performance Analytics
 
 A web application that helps teachers analyze student performance using data analytics, Machine Learning, and AI.
 
 The application brings student marks, attendance, study hours, and assignment performance together in one place. Teachers can view performance trends, get predictions and recommendations, generate reports, and interact with an AI chatbot for additional insights.
 
-Features
+**Features**
 
 - Student performance analysis
 - Performance graphs and visualizations
@@ -15,7 +15,7 @@ Features
 - Teacher dashboard
 - Optimized study schedule
 
-How It Works
+**How It Works**
 
 The teacher manages student performance data through the application.
 
@@ -88,7 +88,7 @@ Navigate to the ML service directory and start the Python service using the proj
 
 Before running the application, make sure PostgreSQL is running and the required database and environment variables are configured.
 
-Demo Account
+#Demo Account
 
 Teacher
 
@@ -99,7 +99,7 @@ Live Demo
 
 https://student-ai-frontend-3tz9.onrender.com/login
 
-Project Structure
+*Project Structure*
 
 Student-AI-Performance-Analytics/
 │
@@ -108,13 +108,13 @@ Student-AI-Performance-Analytics/
 ├── ml-service/     # Machine Learning service
 └── database/       # Database files
 
-Project Objective
+*Project Objective*
 
 The objective of this project is to make student performance data easier for teachers to understand and use.
 
 It combines a web application with Machine Learning and AI so that teachers can view student data and get predictions, recommendations, and insights from it.
 
-Future Improvements
+*Future Improvements*
 
 - Improve prediction accuracy
 - Add more performance metrics
