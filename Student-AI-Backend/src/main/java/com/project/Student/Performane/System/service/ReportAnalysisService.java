@@ -7,31 +7,19 @@ import com.project.Student.Performane.System.dto.PerformanceSummaryDTO;
 import com.project.Student.Performane.System.repo.StudentRepository;
 import com.project.Student.Performane.System.repo.WeeklyReportRepository;
 import lombok.RequiredArgsConstructor;
-import okhttp3.*;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.ObjectMapper;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
 public class ReportAnalysisService {
 
-    @Value("${grok.api.key}")
-    private String apiKey;
-
-    private static final String GROK_URL = "https://api.groq.com/openai/v1/chat/completions";
-    private static final String MODEL    = "llama-3.1-8b-instant";
-
-    private final OkHttpClient           http              = new OkHttpClient();
-    private final ObjectMapper           mapper            = new ObjectMapper();
+    private final GeminiClient           gemini;
     private final WeeklyReportRepository reportRepository;
     private final StudentRepository      studentRepository;
     private final AnalyticsService       analyticsService;
@@ -41,7 +29,7 @@ public class ReportAnalysisService {
                 .orElseThrow(() -> new RuntimeException("Student not found: " + studentId));
 
         PerformanceSummaryDTO summary = analyticsService.getLatestSummary(studentId);
-        String aiText = callGroqForAnalysis(student, summary);
+        String aiText = callGeminiForAnalysis(student, summary);
         String html   = buildReportHtml(student, summary, aiText);
 
         WeeklyReport report = WeeklyReport.builder()
@@ -69,7 +57,7 @@ public class ReportAnalysisService {
     }
 
 
-    private String callGroqForAnalysis(Student student, PerformanceSummaryDTO s) throws IOException {
+    private String callGeminiForAnalysis(Student student, PerformanceSummaryDTO s) throws IOException {
         String systemPrompt = """
                 You are an expert academic advisor AI.
                 Analyse student performance data and write a professional weekly report.
@@ -109,30 +97,7 @@ public class ReportAnalysisService {
                 s.getAtRiskFlag(), s.getSuddenDropFlag(), s.getLowEngagementFlag()
         );
 
-        Map<String, Object> body = Map.of(
-                "model",       MODEL,
-                "messages",    List.of(
-                        Map.of("role", "system", "content", systemPrompt),
-                        Map.of("role", "user",   "content", userPrompt)
-                ),
-                "temperature", 0.4,
-                "max_tokens",  1500
-        );
-
-        RequestBody rb = RequestBody.create(
-                mapper.writeValueAsString(body), MediaType.parse("application/json"));
-        Request request = new Request.Builder()
-                .url(GROK_URL)
-                .addHeader("Authorization", "Bearer " + apiKey)
-                .addHeader("Content-Type", "application/json")
-                .post(rb).build();
-
-        try (Response response = http.newCall(request).execute()) {
-            if (!response.isSuccessful())
-                throw new IOException("Groq error: " + response.code() + " " + response.body().string());
-            JsonNode root = mapper.readTree(response.body().string());
-            return root.get("choices").get(0).get("message").get("content").asText();
-        }
+        return gemini.generate(systemPrompt, userPrompt, 1500);
     }
 
     private String buildReportHtml(Student student, PerformanceSummaryDTO s, String aiAnalysis) {
