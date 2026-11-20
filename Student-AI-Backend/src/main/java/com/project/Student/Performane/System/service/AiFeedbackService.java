@@ -7,8 +7,6 @@ import com.project.Student.Performane.System.repo.AiFeedbackRepository;
 import com.project.Student.Performane.System.repo.StudentRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import okhttp3.*;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -24,13 +22,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class AiFeedbackService {
 
-    @Value("${grok.api.key}")
-    private String apiKey;
-
-    private static final String GROK_URL = "https://api.groq.com/openai/v1/chat/completions";
-    private static final String MODEL    = "llama-3.1-8b-instant";
-
-    private final OkHttpClient       http             = new OkHttpClient();
+    private final GeminiClient       gemini;
     private final ObjectMapper       mapper           = new ObjectMapper();
     private final AiFeedbackRepository feedbackRepository;
     private final StudentRepository  studentRepository;
@@ -43,7 +35,7 @@ public class AiFeedbackService {
 
         PerformanceSummaryDTO summary = analyticsService.getLatestSummary(studentId);
 
-        String feedbackText = callGroqForFeedback(student, summary);
+        String feedbackText = callGeminiForFeedback(student, summary);
 
         SentimentResult sentiment = analyseSentiment(feedbackText, summary.getRiskLevel());
 
@@ -76,7 +68,7 @@ public class AiFeedbackService {
         return Map.of("distribution", distribution, "total", total);
     }
 
-    private String callGroqForFeedback(Student student, PerformanceSummaryDTO s) throws IOException {
+    private String callGeminiForFeedback(Student student, PerformanceSummaryDTO s) throws IOException {
         String systemPrompt = """
                 You are an empathetic AI academic coach.
                 Based on the student's academic performance data, generate detailed, personalised feedback.
@@ -115,7 +107,7 @@ public class AiFeedbackService {
                 s.getAtRiskFlag(), s.getSuddenDropFlag(), s.getLowEngagementFlag()
         );
 
-        return callGroq(systemPrompt, userPrompt, 0.5, 1200);
+        return gemini.generate(systemPrompt, userPrompt, 1200);
     }
 
     private SentimentResult analyseSentiment(String feedbackText, String riskLevel) {
@@ -134,7 +126,7 @@ public class AiFeedbackService {
         String userPrompt = "Risk Level: " + riskLevel + "\nFeedback: " + feedbackText;
 
         try {
-            String raw = callGroq(systemPrompt, userPrompt, 0.1, 300);
+            String raw = gemini.generate(systemPrompt, userPrompt, 300);
             String json = raw.replaceAll("```json|```", "").trim();
             JsonNode result = mapper.readTree(json);
             return new SentimentResult(
@@ -146,34 +138,6 @@ public class AiFeedbackService {
         } catch (Exception e) {
             log.warn("Sentiment analysis failed: {}", e.getMessage());
             return new SentimentResult("NEUTRAL", 0.5, "performance,academics", "Sentiment analysis unavailable.");
-        }
-    }
-
-    private String callGroq(String systemPrompt, String userPrompt,
-                            double temperature, int maxTokens) throws IOException {
-        Map<String, Object> body = Map.of(
-                "model",       MODEL,
-                "messages",    List.of(
-                        Map.of("role", "system", "content", systemPrompt),
-                        Map.of("role", "user",   "content", userPrompt)
-                ),
-                "temperature", temperature,
-                "max_tokens",  maxTokens
-        );
-
-        RequestBody rb = RequestBody.create(
-                mapper.writeValueAsString(body), MediaType.parse("application/json"));
-        Request request = new Request.Builder()
-                .url(GROK_URL)
-                .addHeader("Authorization", "Bearer " + apiKey)
-                .addHeader("Content-Type", "application/json")
-                .post(rb).build();
-
-        try (Response response = http.newCall(request).execute()) {
-            if (!response.isSuccessful())
-                throw new IOException("Groq error: " + response.code() + " " + response.body().string());
-            JsonNode root = mapper.readTree(response.body().string());
-            return root.get("choices").get(0).get("message").get("content").asText();
         }
     }
 
