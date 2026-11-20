@@ -1,13 +1,10 @@
 package com.project.Student.Performane.System.service;
 
 import lombok.RequiredArgsConstructor;
-import okhttp3.*;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 
 import jakarta.annotation.PostConstruct;
-import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
@@ -18,12 +15,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ChatService {
 
-    @Value("${grok.api.key}")
-    private String apiKey;
-
-    private static final String GROK_URL = "https://api.groq.com/openai/v1/chat/completions";
-    private static final String MODEL = "openai/gpt-oss-20b";
-    private final OkHttpClient http = new OkHttpClient();
+    private final GeminiClient gemini;
     private final ObjectMapper mapper = new ObjectMapper();
 
     private List<Map<String, Object>> knowledgeBase = new ArrayList<>();
@@ -85,55 +77,6 @@ public class ChatService {
                 APP KNOWLEDGE BASE:
                 """ + context;
 
-        Map<String, Object> body = Map.of(
-                "model", MODEL,
-                "messages", List.of(
-                        Map.of(
-                                "role", "system",
-                                "content", systemPrompt
-                        ),
-                        Map.of(
-                                "role", "user",
-                                "content", userMessage
-                        )
-                ),
-                "temperature", 0.3,
-                "max_tokens", 512
-        );
-
-        RequestBody requestBody = RequestBody.create(
-                mapper.writeValueAsString(body),
-                MediaType.parse("application/json")
-        );
-
-        Request request = new Request.Builder()
-                .url(GROK_URL)
-                .addHeader("Authorization", "Bearer " + apiKey)
-                .addHeader("Content-Type", "application/json")
-                .post(requestBody)
-                .build();
-
-        try (Response response = http.newCall(request).execute()) {
-
-            if (!response.isSuccessful()) {
-                throw new IOException(
-                        "Grok API error: "
-                                + response.code()
-                                + " - "
-                                + response.body().string()
-                );
-            }
-
-            String responseBody = response.body().string();
-
-            JsonNode root = mapper.readTree(responseBody);
-
-            return root
-                    .get("choices")
-                    .get(0)
-                    .get("message")
-                    .get("content")
-                    .asText();
-        }
+        return gemini.generate(systemPrompt, userMessage, 512);
     }
 }
